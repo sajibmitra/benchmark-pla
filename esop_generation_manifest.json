@@ -1,0 +1,194 @@
+{
+  "generated_at": 1775845850.413045,
+  "source_script": "generate_esop_accurate.py",
+  "abc_binary": "/tmp/abc-berkeley/abc",
+  "conversions": {
+    "adder.blif": {
+      "status": "failed"
+    },
+    "bar.blif": {
+      "status": "failed"
+    },
+    "div.blif": {
+      "status": "failed"
+    },
+    "hyp.blif": {
+      "status": "failed"
+    },
+    "log2.blif": {
+      "status": "failed"
+    },
+    "max.blif": {
+      "status": "failed"
+    },
+    "multiplier.blif": {
+      "status": "failed"
+    },
+    "sin.blif": {
+      "status": "failed"
+    },
+    "sqrt.blif": {
+      "status": "failed"
+    },
+    "square.blif": {
+      "status": "failed"
+    },
+    "adder_depth_2025.blif": {
+      "status": "failed"
+    },
+    "arbiter_depth_2022.blif": {
+      "status": "failed"
+    },
+    "bar_depth_2015.blif": {
+      "status": "failed"
+    },
+    "cavlc_depth_2022.blif": {
+      "status": "failed"
+    },
+    "ctrl_depth_2023.blif": {
+      "status": "failed"
+    },
+    "dec_depth_2018.blif": {
+      "status": "failed"
+    },
+    "div_depth_2024.blif": {
+      "status": "failed"
+    },
+    "hyp_depth_2024.blif": {
+      "status": "failed"
+    },
+    "i2c_depth_2023.blif": {
+      "status": "failed"
+    },
+    "int2float_depth_2025.blif": {
+      "status": "failed"
+    },
+    "log2_depth_2024.blif": {
+      "status": "failed"
+    },
+    "max_depth_2025.blif": {
+      "status": "failed"
+    },
+    "mem_ctrl_depth_2025.blif": {
+      "status": "failed"
+    },
+    "multiplier_depth_2024.blif": {
+      "status": "failed"
+    },
+    "priority_depth_2022.blif": {
+      "status": "failed"
+    },
+    "router_depth_2022.blif": {
+      "status": "failed"
+    },
+    "sqrt_depth_2024.blif": {
+      "status": "failed"
+    },
+    "square_depth_2024.blif": {
+      "status": "failed"
+    },
+    "voter_depth_2025.blif": {
+      "status": "failed"
+    },
+    "adder_size_2022.blif": {
+      "status": "failed"
+    },
+    "arbiter_size_2024.blif": {
+      "status": "failed"
+    },
+    "bar_size_2015.blif": {
+      "status": "failed"
+    },
+    "cavlc_size_2024.blif": {
+      "status": "failed"
+    },
+    "ctrl_size_2023.blif": {
+      "status": "failed"
+    },
+    "dec_size_2018.blif": {
+      "status": "failed"
+    },
+    "div_size_2024.blif": {
+      "status": "failed"
+    },
+    "hyp_size_2025.blif": {
+      "status": "failed"
+    },
+    "i2c_size_2024.blif": {
+      "status": "failed"
+    },
+    "int2float_size_2025.blif": {
+      "status": "failed"
+    },
+    "log2_size_2024.blif": {
+      "status": "failed"
+    },
+    "max_size_2024.blif": {
+      "status": "failed"
+    },
+    "mem_ctrl_size_2024.blif": {
+      "status": "failed"
+    },
+    "multiplier_size_2024.blif": {
+      "status": "failed"
+    },
+    "priority_size_2024.blif": {
+      "status": "failed"
+    },
+    "router_size_2024.blif": {
+      "status": "failed"
+    },
+    "sin_size_2025.blif": {
+      "status": "failed"
+    },
+    "sqrt_size_2024.blif": {
+      "status": "failed"
+    },
+    "square_size_2024.blif": {
+      "status": "failed"
+    },
+    "voter_size_2025.blif": {
+      "status": "failed"
+    },
+    "arbiter.blif": {
+      "status": "failed"
+    },
+    "cavlc.blif": {
+      "status": "failed"
+    },
+    "ctrl.blif": {
+      "status": "failed"
+    },
+    "dec.blif": {
+      "status": "failed"
+    },
+    "i2c.blif": {
+      "status": "failed"
+    },
+    "int2float.blif": {
+      "status": "failed"
+    },
+    "mem_ctrl.blif": {
+      "status": "failed"
+    },
+    "priority.blif": {
+      "status": "failed"
+    },
+    "router.blif": {
+      "status": "failed"
+    },
+    "voter.blif": {
+      "status": "failed"
+    }
+  },
+  "statistics": {
+    "total_circuits": 59,
+    "successful_conversions": 0,
+    "failed_conversions": 59,
+    "total_time": 1.018549919128418,
+    "converted_by_source": {
+      "epfl": 0,
+      "mcnc": 0
+    }
+  }
+}
