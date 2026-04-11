@@ -1,16 +1,21 @@
 """
-BLIF to ESOP converter using ABC toolchain.
+BLIF to ESOP converter using ABC.
 
-This module provides direct BLIF→ESOP conversion for benchmark circuits.
-It parses BLIF files and uses ABC to extract logic relationships,
-then converts them to ESOP (AND-EXOR) representation.
+1. ABC writes a two-level PLA (SOP) when `collapse`+`write_pla` is feasible.
+2. EXORCISM-4 (`&exorcism`) minimizes that PLA, or (if that fails or PLA cannot be
+   built) falls back to `read; strash; &get; &exorcism` on the GIA — needed when
+   `collapse` hits the ~1M cube limit on large EPFL/MCNC designs.
+3. Environment: ABC_BIN, EXORCISM_Q, ABC_GIA_EXORCISM_TIMEOUT (seconds for the
+   GIA `&exorcism` step; use a large value for wide multi-output circuits).
+4. No non-ABC fallback that fabricates cubes when `require_abc` is True.
 """
 
+import os
+import shlex
 import subprocess
-import re
 import tempfile
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 class BLIFParser:
@@ -73,86 +78,269 @@ class BLIFToESOP:
     """Convert BLIF circuits to ESOP (AND-EXOR) representation."""
     
     ABC_BIN = "/tmp/abc-berkeley/abc"
-    ABC_TIMEOUT = 120  # Increased to 120 seconds for large circuits
-    
-    def __init__(self, blif_file: str):
+    ABC_TIMEOUT = 120
+
+    def __init__(
+        self,
+        blif_file: str,
+        require_abc: bool = True,
+        use_exorcism: bool = True,
+        exorcism_quality: Optional[int] = None,
+    ):
         self.blif_file = Path(blif_file)
         self.parser = BLIFParser(blif_file)
+        self.require_abc = require_abc
+        self.use_exorcism = use_exorcism
+        if exorcism_quality is None:
+            exorcism_quality = int(os.environ.get("EXORCISM_Q", "2"))
+        self.exorcism_quality = max(0, exorcism_quality)
         self.num_inputs = 0
         self.num_outputs = 0
-        self.products = []  # List of (input_pattern, output_vector) tuples
-        self.esop_terms = {}  # output_idx -> list of product terms
-        
-    def extract_logic_via_abc(self) -> bool:
-        """Use ABC to extract logic and convert to truth table format."""
+        self.products: List[Tuple[str, str]] = []
+        self.esop_terms: Dict[int, List[str]] = {}
+        self._source_abc_pla = False
+        self._used_exorcism = False
+
+    def _abc_binary(self) -> str:
+        return os.environ.get("ABC_BIN", self.ABC_BIN)
+
+    @staticmethod
+    def _abc_merge_output(result) -> str:
+        """ABC often prints errors on stdout; combine streams for diagnostics."""
+        parts = []
+        if result.stdout:
+            parts.append(result.stdout)
+        if result.stderr:
+            parts.append(result.stderr)
+        return "\n".join(parts).strip()[-1200:]
+
+    def _abc_run_script(
+        self, abc_bin: str, script_body: str, timeout: int
+    ) -> subprocess.CompletedProcess:
+        scr_path = None
         try:
-            # Create a temporary PLA file from ABC
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.pla', delete=False) as tmp:
-                tmp_path = tmp.name
-            
-            file_size_mb = self.blif_file.stat().st_size / (1024 * 1024)
-            
-            # Use different strategies based on file size
-            if file_size_mb > 5:
-                # For very large files, use minimal synthesis
-                abc_script = f"""
-                read "{self.blif_file}"
-                collapse2
-                write_pla "{tmp_path}"
-                quit
-                """
-            elif file_size_mb > 2:
-                # For medium files, use basic synthesis
-                abc_script = f"""
-                read "{self.blif_file}"
-                collapse
-                strash
-                write_pla "{tmp_path}"
-                quit
-                """
-            else:
-                # For small files, use full optimization
-                abc_script = f"""
-                read "{self.blif_file}"
-                collapse
-                strash
-                refactor
-                balance
-                write_pla "{tmp_path}"
-                quit
-                """
-            
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.tcl', delete=False) as script:
-                script.write(abc_script)
-                script_path = script.name
-            
-            # Run ABC with adaptive timeout
-            timeout = max(self.ABC_TIMEOUT, int(30 + file_size_mb * 10))  # 10 sec per MB
-            
-            result = subprocess.run(
-                [self.ABC_BIN, "-f", script_path],
+            with tempfile.NamedTemporaryFile(
+                mode="w", suffix=".scr", delete=False, encoding="utf-8"
+            ) as scr:
+                scr.write(script_body)
+                scr_path = scr.name
+            return subprocess.run(
+                [abc_bin, "-f", scr_path],
                 capture_output=True,
                 text=True,
-                timeout=timeout
+                timeout=timeout,
+                env={**os.environ, "LC_ALL": "C"},
             )
-            
-            # Parse the generated PLA file
-            pla_path = Path(tmp_path)
-            if pla_path.exists() and pla_path.stat().st_size > 0:
-                return self._parse_pla_to_products(tmp_path)
-            else:
-                # Fallback: direct BLIF parsing with SOP extraction
-                return self._extract_from_blif_directly()
-        
+        finally:
+            if scr_path:
+                try:
+                    os.unlink(scr_path)
+                except OSError:
+                    pass
+
+    def _abc_run_exorcism(
+        self, abc_bin: str, pla_in: str, pla_out: str, timeout: int
+    ) -> bool:
+        """Run ABC9 `&exorcism` (EXORCISM-4) on a PLA file; write ESOP-PLA to pla_out."""
+        in_q = shlex.quote(pla_in)
+        out_q = shlex.quote(pla_out)
+        q = self.exorcism_quality
+        script_body = f"&exorcism -Q {q} -V 0 {in_q} {out_q}\nquit\n"
+        try:
+            self._abc_run_script(abc_bin, script_body, max(timeout, 120))
+        except (subprocess.TimeoutExpired, OSError):
+            return False
+        outp = Path(pla_out)
+        return outp.is_file() and outp.stat().st_size > 0
+
+    def _abc_run_gia_exorcism(
+        self, abc_bin: str, blif_q: str, esop_out: str, timeout: int
+    ) -> bool:
+        """
+        read → strash → &get → &exorcism on the GIA (no two-level PLA).
+
+        Avoids `collapse` + write_pla cube explosion on large EPFL/MCNC circuits
+        (e.g. wide adders hit the 1M cube limit).
+        """
+        out_q = shlex.quote(esop_out)
+        q = self.exorcism_quality
+        script_body = (
+            f"read {blif_q}\nstrash\n&get\n"
+            f"&exorcism -Q {q} -V 0 {out_q}\nquit\n"
+        )
+        env_cap = os.environ.get("ABC_GIA_EXORCISM_TIMEOUT")
+        if env_cap and env_cap.isdigit():
+            gia_timeout = int(env_cap)
+        else:
+            # Large multi-output EPFL circuits can need many minutes.
+            gia_timeout = min(max(timeout * 5, 600), 7200)
+        try:
+            self._abc_run_script(abc_bin, script_body, gia_timeout)
         except subprocess.TimeoutExpired:
-            print(f"ABC processing timed out (file: {self.blif_file.name}, size: {self.blif_file.stat().st_size / (1024*1024):.1f}MB) - using fallback parsing")
+            print(
+                f"ABC GIA EXORCISM-4 timed out ({gia_timeout}s) for "
+                f"{self.blif_file.name}; set ABC_GIA_EXORCISM_TIMEOUT (seconds) "
+                "to allow longer runs."
+            )
+            return False
+        except OSError:
+            return False
+        outp = Path(esop_out)
+        return outp.is_file() and outp.stat().st_size > 0
+
+    def extract_logic_via_abc(self) -> bool:
+        """Run ABC write_pla only; no fake logic if ABC fails (when require_abc)."""
+        abc_bin = self._abc_binary()
+        if not Path(abc_bin).is_file():
+            print(
+                f"ABC binary not found at {abc_bin}. "
+                "Set ABC_BIN or build: https://github.com/berkeley-abc/abc"
+            )
+            if self.require_abc:
+                return False
             return self._extract_from_blif_directly()
+
+        file_size_mb = self.blif_file.stat().st_size / (1024 * 1024)
+        timeout = max(self.ABC_TIMEOUT, int(30 + file_size_mb * 10))
+
+        fd, tmp_path = tempfile.mkstemp(suffix=".pla")
+        os.close(fd)
+        pla_path = Path(tmp_path)
+        fd_exo, tmp_exo = tempfile.mkstemp(suffix=".esop")
+        os.close(fd_exo)
+        exo_path = Path(tmp_exo)
+
+        try:
+            blif_q = shlex.quote(str(self.blif_file.resolve()))
+            pla_q = shlex.quote(str(pla_path.resolve()))
+
+            # Try light-to-heavy ABC flows; all preserve Boolean equivalence.
+            # Use -f script files: some ABC builds do not run multi-command -c reliably.
+            # `collapse` + write_pla is required for many networks and for feeding &exorcism.
+            strategies = [
+                f"read {blif_q}\ncollapse\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nstrash\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\ncollapse\nstrash\nwrite_pla {pla_q}\nquit\n",
+            ]
+            if file_size_mb > 2:
+                strategies.append(
+                    f"read {blif_q}\ncollapse2\nwrite_pla {pla_q}\nquit\n"
+                )
+            if file_size_mb <= 2:
+                strategies.append(
+                    f"read {blif_q}\ncollapse\nstrash\nrefactor\nbalance\n"
+                    f"write_pla {pla_q}\nquit\n"
+                )
+
+            last_abc_log = ""
+            for script_body in strategies:
+                self.products.clear()
+                self._source_abc_pla = False
+                self._used_exorcism = False
+                if pla_path.exists():
+                    pla_path.unlink()
+                if exo_path.exists():
+                    exo_path.unlink()
+
+                try:
+                    result = self._abc_run_script(abc_bin, script_body, timeout)
+                    last_abc_log = self._abc_merge_output(result)
+                except subprocess.TimeoutExpired:
+                    print(
+                        f"ABC timed out ({timeout}s) for {self.blif_file.name} "
+                        f"({file_size_mb:.1f} MB)"
+                    )
+                    if self.require_abc:
+                        return False
+                    return self._extract_from_blif_directly()
+
+                if not (pla_path.exists() and pla_path.stat().st_size > 0):
+                    continue
+
+                self.products.clear()
+                if not self._parse_pla_to_products(tmp_path):
+                    continue
+
+                if self.use_exorcism:
+                    if exo_path.exists():
+                        exo_path.unlink()
+                    got_exo = False
+                    if self._abc_run_exorcism(
+                        abc_bin, str(pla_path), str(exo_path), timeout
+                    ):
+                        self.products.clear()
+                        got_exo = self._parse_pla_to_products(str(exo_path))
+                    if not got_exo:
+                        if exo_path.exists():
+                            exo_path.unlink()
+                        if self._abc_run_gia_exorcism(
+                            abc_bin, blif_q, str(exo_path), timeout
+                        ):
+                            self.products.clear()
+                            got_exo = self._parse_pla_to_products(str(exo_path))
+                    if got_exo:
+                        self._source_abc_pla = True
+                        self._used_exorcism = True
+                        return True
+                    self.products.clear()
+                    if not self._parse_pla_to_products(tmp_path):
+                        continue
+                    print(
+                        f"EXORCISM-4 failed for {self.blif_file.name} "
+                        "(PLA and GIA paths); using SOP PLA from ABC."
+                    )
+
+                self._source_abc_pla = True
+                self._used_exorcism = False
+                return True
+
+            if self.use_exorcism:
+                if exo_path.exists():
+                    exo_path.unlink()
+                if self._abc_run_gia_exorcism(
+                    abc_bin, blif_q, str(exo_path), timeout
+                ):
+                    self.products.clear()
+                    if self._parse_pla_to_products(str(exo_path)):
+                        self._source_abc_pla = True
+                        self._used_exorcism = True
+                        return True
+
+            hint = ""
+            low = last_abc_log.lower()
+            if "cube" in low and "limit" in low:
+                hint = (
+                    " Hint: `collapse`+`write_pla` hit ABC’s cube limit; GIA "
+                    "`&exorcism` was attempted — increase ABC_GIA_EXORCISM_TIMEOUT "
+                    "if it timed out, or use a faster ABC build."
+                )
+            print(
+                f"ABC could not extract a usable PLA/ESOP for {self.blif_file.name}. "
+                f"Last ABC output (truncated): {last_abc_log!r}.{hint}"
+            )
+            if self.require_abc:
+                return False
+            return self._extract_from_blif_directly()
+
         except Exception as e:
-            print(f"ABC extraction failed: {e} - using fallback parsing")
+            print(f"ABC extraction failed: {e}")
+            if self.require_abc:
+                return False
             return self._extract_from_blif_directly()
+        finally:
+            for p in (pla_path, exo_path):
+                if p.exists():
+                    try:
+                        p.unlink()
+                    except OSError:
+                        pass
     
     def _extract_from_blif_directly(self) -> bool:
-        """Extract logic directly from BLIF without ABC (fallback method)."""
+        """
+        Legacy path when require_abc=False only. Does not reproduce BLIF I/O behavior;
+        do not use for accurate conversion.
+        """
         if not self.parser.parse():
             # Try to at least get basic circuit structure
             if not self._extract_blif_structure():
@@ -251,31 +439,52 @@ class BLIFToESOP:
     
     def _parse_pla_to_products(self, pla_file: str) -> bool:
         """Parse PLA file into products for ESOP conversion."""
+        self.products = []
         try:
             with open(pla_file, 'r') as f:
                 lines = [line.strip() for line in f if line.strip()]
             
+            self.num_inputs = 0
+            self.num_outputs = 0
             i = 0
             while i < len(lines):
                 line = lines[i]
-                if line.startswith('.i'):
-                    self.num_inputs = int(line.split()[1])
-                elif line.startswith('.o'):
-                    self.num_outputs = int(line.split()[1])
-                elif line.startswith('.p'):
-                    pass  # Number of products - informative only
-                elif line.startswith('.e'):
+                if line.startswith("#"):
+                    i += 1
+                    continue
+                parts = line.split()
+                if not parts:
+                    i += 1
+                    continue
+                tag = parts[0].lower()
+                # Use exact tags so ".ilb" does not match ".i"
+                if tag == ".i":
+                    self.num_inputs = int(parts[1])
+                elif tag == ".o":
+                    self.num_outputs = int(parts[1])
+                elif tag == ".p":
+                    pass  # informative only
+                elif tag == ".e":
                     break
-                elif not line.startswith('.'):
-                    # Parse product: "input_pattern output_vector"
-                    parts = line.split()
-                    if len(parts) == 2:
-                        input_pattern = parts[0]
-                        output_pattern = parts[1]
-                        self.products.append((input_pattern, output_pattern))
+                elif tag.startswith("."):
+                    pass  # .ilb, .ob, .type, etc.
+                elif len(parts) == 2:
+                    input_pattern = parts[0]
+                    output_pattern = parts[1]
+                    self.products.append((input_pattern, output_pattern))
                 i += 1
             
-            return len(self.products) > 0
+            ok = (
+                len(self.products) > 0
+                and self.num_inputs > 0
+                and self.num_outputs > 0
+            )
+            if not ok and lines:
+                print(
+                    f"PLA parse: expected cube lines with .i/.o; got {len(self.products)} products "
+                    f"({pla_file})"
+                )
+            return ok
         
         except Exception as e:
             print(f"Error parsing PLA: {e}")
@@ -316,37 +525,53 @@ class BLIFToESOP:
         if not self.extract_logic_via_abc():
             print("Failed to extract logic from BLIF")
             return False
-        
-        if not self.minimize_esop():
-            print("Failed to minimize to ESOP")
-            return False
-        
+
+        # SOP PLA: group cubes per output. ESOP from &exorcism: keep cubes as-is.
+        if not self._used_exorcism:
+            self.minimize_esop()
         return True
     
     def write_esop_file(self, output_file: str) -> bool:
-        """Write the converted ESOP to a file in standard ESOP format."""
+        """
+        Write ESOP as a PLA-style .esop file: .i / .o / .p, then one row per cube
+        (input cube of 0/1/-, space, output bit-vector), then .e — same layout as
+        classic benchmarks (e.g. benchmarks/eda/classic/5xp1.esop).
+        """
         try:
-            if not self.esop_terms:
+            if not self.products and not self.esop_terms:
                 print("No ESOP terms to write")
                 return False
-            
-            with open(output_file, 'w') as f:
+
+            # Preserve ABC write_pla row order and counts when logic came from ABC.
+            if self._source_abc_pla and self.products:
+                with open(output_file, "w") as f:
+                    f.write(f".i {self.num_inputs}\n")
+                    f.write(f".o {self.num_outputs}\n")
+                    f.write(f".p {len(self.products)}\n")
+                    for cube, out_vec in self.products:
+                        f.write(f"{cube} {out_vec}\n")
+                    f.write(".e\n")
+                return True
+
+            row_bits: Dict[str, List[str]] = {}
+            for j in range(self.num_outputs):
+                for cube in self.esop_terms.get(j, []):
+                    if cube not in row_bits:
+                        row_bits[cube] = ["0"] * self.num_outputs
+                    row_bits[cube][j] = "1"
+
+            cubes_ordered = sorted(row_bits.keys())
+
+            with open(output_file, "w") as f:
                 f.write(f".i {self.num_inputs}\n")
                 f.write(f".o {self.num_outputs}\n")
-                
-                # Write each output as XOR of products
-                for output_idx in range(self.num_outputs):
-                    terms = self.esop_terms.get(output_idx, [])
-                    if terms:
-                        xor_expr = " ^ ".join(terms)
-                        f.write(f"{xor_expr}\n")
-                    else:
-                        f.write("0\n")
-                
+                f.write(f".p {len(row_bits)}\n")
+                for cube in cubes_ordered:
+                    f.write(f"{cube} {''.join(row_bits[cube])}\n")
                 f.write(".e\n")
-            
+
             return True
-        
+
         except Exception as e:
             print(f"Error writing ESOP file: {e}")
             return False
@@ -355,10 +580,16 @@ class BLIFToESOP:
 class BLIFBatchConverter:
     """Batch convert multiple BLIF files to ESOP format."""
     
-    def __init__(self, source_dir: str, output_dir: str = None):
+    def __init__(
+        self,
+        source_dir: str,
+        output_dir: str = None,
+        use_exorcism: bool = True,
+    ):
         self.source_dir = Path(source_dir)
         self.output_dir = Path(output_dir) if output_dir else self.source_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.use_exorcism = use_exorcism
         
     def convert_all(self, pattern: str = "*.blif") -> Tuple[int, int]:
         """Convert all BLIF files matching pattern. Returns (converted, failed)."""
@@ -372,7 +603,11 @@ class BLIFBatchConverter:
         failed = 0
         
         print(f"Found {len(blif_files)} BLIF files")
-        print(f"Output directory: {self.output_dir}\n")
+        print(f"Output directory: {self.output_dir}")
+        print(
+            "Pipeline: ABC write_pla"
+            + (" + &exorcism (EXORCISM-4)\n" if self.use_exorcism else " (SOP only)\n")
+        )
         
         for blif_file in blif_files:
             rel_path = blif_file.relative_to(self.source_dir)
@@ -381,7 +616,11 @@ class BLIFBatchConverter:
             
             print(f"Converting {rel_path.name}...", end=" ", flush=True)
             
-            converter = BLIFToESOP(str(blif_file))
+            converter = BLIFToESOP(
+                str(blif_file),
+                require_abc=True,
+                use_exorcism=self.use_exorcism,
+            )
             if converter.convert_to_esop():
                 if converter.write_esop_file(str(output_file)):
                     converted += 1

@@ -25,17 +25,16 @@ class RPLA:
 
         if self.selectedMenu == 2:
             if self.selectedBenchmarkSubdir:
-                source_dirs = [project_root / "eda" / "mcnc" / self.selectedBenchmarkSubdir]
+                source_dirs = [project_root / "benchmarks" / "eda" / "mcnc" / self.selectedBenchmarkSubdir]
             else:
-                source_dirs = [project_root / "eda" / "mcnc"]
+                source_dirs = [project_root / "benchmarks" / "eda" / "mcnc"]
         elif self.selectedMenu == 3:
-            source_dirs = [project_root / "eda" / "epfl"]
+            source_dirs = [project_root / "benchmarks" / "eda" / "epfl"]
         else:
             source_dirs = [
-                project_root / "eda" / "classic" / "classic",
-                project_root / "classic" / "classic",
-                project_root / "eda" / "classic",
-                project_root / "classic",
+                project_root / "benchmarks" / "eda" / "classic" / "classic",
+                project_root / "classic" ,
+                project_root / "benchmarks" / "eda",
             ]
 
         if file_path.is_absolute():
@@ -221,15 +220,15 @@ class RPLA:
                 i += 2
         return 0
 
-    def convertBLIFToESOP(self, fileName):
-        """Convert BLIF file to ESOP format using ABC and custom parser."""
+    def convertBLIFToESOP(self, fileName, use_exorcism: bool = True):
+        """Convert BLIF to ESOP using ABC and, by default, EXORCISM-4 (&exorcism)."""
         try:
             # Check if it's a single file or batch directory
             file_path = Path(fileName)
             
             # If it's a directory, do batch conversion
             if file_path.is_dir() or fileName in ("epfl", "mcnc", "both"):
-                self._batchConvertBLIFToESOP(fileName)
+                self._batchConvertBLIFToESOP(fileName, use_exorcism=use_exorcism)
             else:
                 # Single file conversion
                 self._singleConvertBLIFToESOP(fileName)
@@ -262,8 +261,8 @@ class RPLA:
         except Exception as e:
             print(f"❌ Error: {e}")
     
-    def _batchConvertBLIFToESOP(self, source):
-        """Batch convert BLIF files from EPFL/MCNC benchmarks."""
+    def _batchConvertBLIFToESOP(self, source, use_exorcism: bool = True):
+        """Batch convert BLIF files from EPFL/MCNC benchmarks (ABC + optional EXORCISM-4)."""
         project_root = Path(__file__).resolve().parent.parent
         eda_root = project_root / "benchmarks" / "eda"
         
@@ -296,7 +295,7 @@ class RPLA:
             print(f"Converting BLIF benchmarks in {source_dir.name}")
             print(f"{'='*70}")
             
-            converter = BLIFBatchConverter(str(source_dir))
+            converter = BLIFBatchConverter(str(source_dir), use_exorcism=use_exorcism)
             converted, failed = converter.convert_all()
             
             total_converted += converted
@@ -326,11 +325,11 @@ def main():
         print("(3) Calculation of Cost of an ESOP PLA (EPFL)")
         print("(4) Convert SOP Expression into PLA (.pla)")
         print("(5) Convert ESOP Expression into ESOP PLA (.esop)")
-        print("(6) Convert BLIF to ESOP (ABC + Custom Parser)")
-        print("(7) Batch Convert EPFL/MCNC Benchmarks to ESOP")
-        print("(8) Exit")
+        print("(6) Convert BLIF to ESOP (ABC + EXORCISM-4)")
+        print("(8) Batch Convert EPFL/MCNC Benchmarks to ESOP (ABC + EXORCISM-4)")
+        print("(9) Exit")
         print("="*70)
-        select = input("Please Enter a number between 1 to 8 : ").strip()
+        select = input("Please Enter a number between 1 to 6, 8, or 9 : ").strip()
         
         if select == "1":
             rplaObj.selectedMenu = 1
@@ -339,16 +338,13 @@ def main():
         elif select == "2":
             rplaObj.selectedMenu = 2
             print("\nMCNC Benchmark Categories:")
-            print("  (a) Arithmetic")
-            print("  (b) best_results")
-            print("  (c) random_control")
-            category = input("Select category (a/b/c): ").strip().lower()
+            print("  (a) Combinational")
+            print("  (b) Sequential")
+            category = input("Select category (a/b): ").strip().lower()
             if category == "a":
-                rplaObj.selectedBenchmarkSubdir = "arithmetic"
+                rplaObj.selectedBenchmarkSubdir = "Combinational"
             elif category == "b":
-                rplaObj.selectedBenchmarkSubdir = "best_results"
-            elif category == "c":
-                rplaObj.selectedBenchmarkSubdir = "random_control"
+                rplaObj.selectedBenchmarkSubdir = "Sequential"
             else:
                 print("Invalid selection. Returning to main menu.")
                 rplaObj.selectedBenchmarkSubdir = None
@@ -371,25 +367,25 @@ def main():
         elif select == "6":
             file_name = input("\nEnter BLIF File Path: ")
             rplaObj.convertBLIFToESOP(file_name)
-        elif select == "7":
-            print("\nBatch Conversion Options:")
+        elif select == "8":
+            print("\nBatch conversion (ABC + EXORCISM-4)")
             print("  (a) EPFL benchmarks")
             print("  (b) MCNC benchmarks")
             print("  (c) Both EPFL and MCNC")
             choice = input("Select option (a/b/c): ").strip().lower()
             if choice == "a":
-                rplaObj._batchConvertBLIFToESOP("epfl")
+                rplaObj._batchConvertBLIFToESOP("epfl", use_exorcism=True)
             elif choice == "b":
-                rplaObj._batchConvertBLIFToESOP("mcnc")
+                rplaObj._batchConvertBLIFToESOP("mcnc", use_exorcism=True)
             elif choice == "c":
-                rplaObj._batchConvertBLIFToESOP("both")
+                rplaObj._batchConvertBLIFToESOP("both", use_exorcism=True)
             else:
                 print("Invalid selection")
-        elif select == "8":
+        elif select == "9":
             print("\nThank you for using RPLA. Goodbye!")
             break
         else:
-            print("Invalid selection. Please enter a number between 1 and 8.")
+            print("Invalid selection. Please enter 1–6, 8, or 9.")
 
 
 if __name__ == "__main__":
