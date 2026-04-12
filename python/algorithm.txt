@@ -1,0 +1,119 @@
+Algorithm 1: OpAND(p, q, swapFlag)
+Templates {𝛼, 𝛽, 𝛾, 𝜋} (for swapping {𝛼′, 𝛽′, 𝛾′, 𝜋′}) are used to
+AND {p, q} based on the value of swapFlag.
+Start
+1. If p is a Literal in complemented form Then
+2. If q is in complemented form Then
+3. If swapFlag = 0 Then use 𝜋′ Else use 𝜋
+4. End If
+5. Else
+6. If swapFlag = 0 Then use 𝛽′ Else use 𝛽
+7. End If
+8. End If
+9. Else
+10. If q is in complemented form Then
+11. If swapFlag = 0 Then use 𝛼′ Else use 𝛼
+12. End If
+3. Else
+14. If swapFlag = 0 Then use 𝛾′ Else use 𝛾
+15. End If
+16. End If
+17. End If
+18. Return p.q
+End
+
+
+
+Algorithm 2: SwapLiterals(L𝑖 , L𝑗 )
+Exchanging Input signals {I𝑖 , I 𝑗 } in lines, {L𝑖 , L𝑗 }.
+Start
+1. Set a:= signal at input line, L𝑖
+2. Set b:= signal at input line, L𝑗
+3. L𝑖 := b and L𝑗 := a
+End
+
+
+Algorithm 3: OrderingProducts(I𝑣 , P𝑣 )
+Products, P𝑣 be ordered according to inputs, I𝑣 .
+Start
+1. Set P𝑄 := 𝜙 [P𝑄 is used to store products]
+2. Sort P𝑣 based on SizeOf(P𝑖 ) in descending order
+3. For i= 1 to totalLiterals
+4. For j= 1 to totalProducts
+5. If I𝑖 ∈ P𝑗 and P𝑗 ∉ P𝑄 Then Add P𝑗 to P𝑄
+6. End If
+7. End Loop
+8. End Loop
+9. Set P𝑣 := P𝑄
+End
+
+
+Algorithm 4: ConstuctANDPlane(I𝑣 , P𝑣 )
+This function constructs AND plane by taking set of input literals
+(I𝑣 ) and generates products (P𝑣 ) connecting multiple input lines (L𝑣 )
+by using UMG and UNG gates.
+Start
+1. OrderingProducts (I𝑣 , P𝑣 )
+2. Set P𝑄𝐺 := 𝜙 and ndot:= 0 [P𝑄𝐺 stores garbage]
+3. For g = 1 to totalLiterals - 1
+4. For h = g + 1 to totalLiterals
+5. Set swapFlag:= 0
+6. For i = 1 to totalProducts
+7. If I𝑔Iℎ ∈ P𝑖 Then swapFlag:= swapFlag + 1
+9. End If
+10. End Loop
+11. If swapFlag > 0 Then
+12. For i = 1 to totalProducts
+13. If SizeOf(P𝑖 ) > 1 Then
+14. If P𝑖 ∈ P𝑄𝐺 Then Remove P𝑖 from P𝑄𝐺
+15. Else
+16. If I𝑔Iℎ ∈ P𝑖 Then swapFlag:= swapFlag - 1
+17. Set pivotP:= OpAND(I𝑔, Iℎ , swapFlag)
+18. If SizeOf(P𝑖 ) > 2 Then
+19. For j = h + 1 to totalLiterals
+20. If I𝑗 ∈ P𝑖 Then
+21. Set P𝑔:= pivotP
+22. pivotP:= OpAND(pivotP, I𝑗 , false)
+23. End If
+24. End Loop
+25. Add P𝑔 to P𝑄𝐺 [Add new garbage to P𝑄𝐺 ]
+26. End If
+27. End If
+28. End If
+29. Else ndot:= ndot + 1 [Use via (•)]
+30. End If
+31. End Loop
+32. Else SwapLiterals(L𝑔, Lℎ ); [No mutual products]
+33. End If
+34. End Loop
+35. End Loop
+End
+
+
+Algorithm 5: ConstructXORplane(P𝑣 , F𝑣 )
+EX-OR plane generates the final outputs of multi-output function,
+(F𝑣 ) consists of products, P𝑣 .
+Start
+1. Set F𝑄 := 𝜙 and xdot:= 0
+2. For i= 1 to totalProducts
+3. For j= 1 to totalFunctions
+4. If P𝑖 ∈ F𝑗 Then
+5. If F𝑖 ∉ F𝑄 Then
+6. If FreqOf(P𝑖 ) == 1 Then
+7. xdot:= xdot + 1 [use via (•)]
+8. Else
+9. Use ∇ [Keep a copy of P𝑖 ]
+10. Set FreqOf(P𝑖 ):= FreqOf(P𝑖 ) - 1
+11. End If Add F𝑖 to F𝑄
+12. Else Use 𝜆 [XORing P𝑖 to F𝑗 Line]
+13. End If
+14. Else If P𝑖 ′ ∈ F𝑗 Then
+15. Use △ [Keep a copy of P𝑖 ]
+16. End If
+17. End Loop
+18. End Loop
+End
+
+Implementation note: optimized_rpla_calculation.py applies Algorithm 3
+(OrderingProducts) before calling the same xorPlane/andPlane realization as
+Proposed Design (Sorted FUNCTIONS, Rearranged PRODUCTS, EX-OR / AND planes, Delay).

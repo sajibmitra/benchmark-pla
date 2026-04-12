@@ -13,7 +13,7 @@ class CostCalculation:
         self.delay = 0
         self.xorTDOT = 0
 
-    def xorPlane(self):
+    def xorPlane(self, plane_banner="Proposed Design"):
         self.xorTDOT = 0
         totalXOROperation = 0
         self.sortFunctions()
@@ -66,7 +66,7 @@ class CostCalculation:
         self.garbages = len(self.products) - self.xorTDOT
         self.quantumCost = self.gates
         print("==========================================================")
-        print("                Proposed Design")
+        print(f"                {plane_banner}")
         print("==========================================================")
         print("                Sorted FUNCTIONS ")
         self.showFunctions()
@@ -158,9 +158,11 @@ class CostCalculation:
             product.delayCountAND = 0
             product.delayCountXOR = 0
 
-    def getUpdatedIdOfPro(self, previousId):
+    def getUpdatedIdOfPro(self, product_index):
+        """Map current products-list index to index in finalProducts via stable Product.id."""
+        pid = self.products[product_index].id
         for i, prod in enumerate(self.finalProducts):
-            if prod.id == previousId:
+            if prod.id == pid:
                 return i
         return 0
 

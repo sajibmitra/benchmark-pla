@@ -66,7 +66,7 @@ All generated ESOP files use the standard AND-EXOR (XOR) decomposition format:
   - All converted with 100% accuracy
 
 #### Classic Directory
-- `eda/classic/classic/`: 39 pre-existing ESOP files (not re-generated)
+- `eda/classic/`: 39 pre-existing ESOP files (not re-generated)
 
 ### Quality Assurance
 

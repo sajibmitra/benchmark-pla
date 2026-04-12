@@ -168,16 +168,29 @@ class RPLA:
                 self.totalProducts = int(tokens[i + 1])
                 i += 2
             elif token.lower() == ".e":
+                import copy
+                from types import SimpleNamespace
+
                 from cost_calculation import CostCalculation
                 from existing_calculation import ExistingCalculation
+                from optimized_rpla_calculation import OptimizedRPLACalculation
 
+                snap = SimpleNamespace(
+                    functions=copy.deepcopy(self.functions),
+                    products=copy.deepcopy(self.products),
+                )
                 costCalculation = CostCalculation(self)
                 costCalculation.xorPlane()
                 costCalculation.andPlane()
                 existingCalculation = ExistingCalculation(self, costCalculation)
                 existingCalculation.xorPlane()
                 existingCalculation.andPlane()
-                existingCalculation.showFinalResult()
+
+                opt_calc = OptimizedRPLACalculation(snap, self.totalLiterals)
+                opt_calc.xorPlane()
+                opt_calc.andPlane()
+
+                existingCalculation.showFinalResult(opt_calc=opt_calc)
                 self.time = 0
                 for i in range(self.totalOutputs - 1):
                     for j in range(i + 1, self.totalOutputs):
@@ -221,7 +234,7 @@ class RPLA:
         return 0
 
     def convertBLIFToESOP(self, fileName, use_exorcism: bool = True):
-        """Convert BLIF to ESOP using ABC and, by default, EXORCISM-4 (&exorcism)."""
+        """Convert BLIF to ESOP using ABC and optional EXORCISM-4."""
         try:
             # Check if it's a single file or batch directory
             file_path = Path(fileName)
@@ -231,15 +244,16 @@ class RPLA:
                 self._batchConvertBLIFToESOP(fileName, use_exorcism=use_exorcism)
             else:
                 # Single file conversion
-                self._singleConvertBLIFToESOP(fileName)
+                self._singleConvertBLIFToESOP(fileName, use_exorcism=use_exorcism)
         except Exception as e:
             print(f"Error converting BLIF to ESOP: {e}")
     
-    def _singleConvertBLIFToESOP(self, blif_file):
+    def _singleConvertBLIFToESOP(self, blif_file, use_exorcism: bool = True):
         """Convert a single BLIF file to ESOP."""
         try:
-            print(f"\nConverting BLIF to ESOP: {blif_file}")
-            converter = BLIFToESOP(blif_file)
+            pipeline = "ABC + EXORCISM-4" if use_exorcism else "ABC + Custom Parser"
+            print(f"\nConverting BLIF to ESOP ({pipeline}): {blif_file}")
+            converter = BLIFToESOP(blif_file, use_exorcism=use_exorcism)
             
             if not converter.convert_to_esop():
                 print("❌ Conversion failed")
@@ -325,11 +339,12 @@ def main():
         print("(3) Calculation of Cost of an ESOP PLA (EPFL)")
         print("(4) Convert SOP Expression into PLA (.pla)")
         print("(5) Convert ESOP Expression into ESOP PLA (.esop)")
-        print("(6) Convert BLIF to ESOP (ABC + EXORCISM-4)")
+        print("(6) Convert BLIF to ESOP (ABC + Custom Parser) without EXORCISM-4")
+        print("(7) Batch Convert EPFL/MCNC Benchmarks to ESOP without EXORCISM-4")
         print("(8) Batch Convert EPFL/MCNC Benchmarks to ESOP (ABC + EXORCISM-4)")
         print("(9) Exit")
         print("="*70)
-        select = input("Please Enter a number between 1 to 6, 8, or 9 : ").strip()
+        select = input("Please Enter a number between 1 and 9 : ").strip()
         
         if select == "1":
             rplaObj.selectedMenu = 1
@@ -366,7 +381,21 @@ def main():
             rplaObj.readDataManually(file_name)
         elif select == "6":
             file_name = input("\nEnter BLIF File Path: ")
-            rplaObj.convertBLIFToESOP(file_name)
+            rplaObj.convertBLIFToESOP(file_name, use_exorcism=False)
+        elif select == "7":
+            print("\nBatch conversion (ABC + Custom Parser) without EXORCISM-4")
+            print("  (a) EPFL benchmarks")
+            print("  (b) MCNC benchmarks")
+            print("  (c) Both EPFL and MCNC")
+            choice = input("Select option (a/b/c): ").strip().lower()
+            if choice == "a":
+                rplaObj._batchConvertBLIFToESOP("epfl", use_exorcism=False)
+            elif choice == "b":
+                rplaObj._batchConvertBLIFToESOP("mcnc", use_exorcism=False)
+            elif choice == "c":
+                rplaObj._batchConvertBLIFToESOP("both", use_exorcism=False)
+            else:
+                print("Invalid selection")
         elif select == "8":
             print("\nBatch conversion (ABC + EXORCISM-4)")
             print("  (a) EPFL benchmarks")
@@ -385,7 +414,7 @@ def main():
             print("\nThank you for using RPLA. Goodbye!")
             break
         else:
-            print("Invalid selection. Please enter 1–6, 8, or 9.")
+            print("Invalid selection. Please enter a number between 1 and 9.")
 
 
 if __name__ == "__main__":

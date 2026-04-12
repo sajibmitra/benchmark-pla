@@ -78,7 +78,7 @@ class BLIFToESOP:
     """Convert BLIF circuits to ESOP (AND-EXOR) representation."""
     
     ABC_BIN = "/tmp/abc-berkeley/abc"
-    ABC_TIMEOUT = 120
+    ABC_TIMEOUT = 300
 
     def __init__(
         self,
@@ -218,18 +218,18 @@ class BLIFToESOP:
             # Use -f script files: some ABC builds do not run multi-command -c reliably.
             # `collapse` + write_pla is required for many networks and for feeding &exorcism.
             strategies = [
-                f"read {blif_q}\ncollapse\nwrite_pla {pla_q}\nquit\n",
-                f"read {blif_q}\nwrite_pla {pla_q}\nquit\n",
-                f"read {blif_q}\nstrash\nwrite_pla {pla_q}\nquit\n",
-                f"read {blif_q}\ncollapse\nstrash\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nset cube_limit 100000000\ncollapse\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nset cube_limit 100000000\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nset cube_limit 100000000\nstrash\nwrite_pla {pla_q}\nquit\n",
+                f"read {blif_q}\nset cube_limit 100000000\ncollapse\nstrash\nwrite_pla {pla_q}\nquit\n",
             ]
             if file_size_mb > 2:
                 strategies.append(
-                    f"read {blif_q}\ncollapse2\nwrite_pla {pla_q}\nquit\n"
+                    f"read {blif_q}\nset cube_limit 100000000\ncollapse2\nwrite_pla {pla_q}\nquit\n"
                 )
             if file_size_mb <= 2:
                 strategies.append(
-                    f"read {blif_q}\ncollapse\nstrash\nrefactor\nbalance\n"
+                    f"read {blif_q}\nset cube_limit 100000000\ncollapse\nstrash\nrefactor\nbalance\n"
                     f"write_pla {pla_q}\nquit\n"
                 )
 

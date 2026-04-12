@@ -140,11 +140,31 @@ class ExistingCalculation:
         print("                  Delay ")
         print("==========================================================")
 
-    def showFinalResult(self):
+    def showFinalResult(self, opt_calc=None):
         print("==========================================================")
         print(f"           Final Calculation of {self.rpla.esopFileName}")
         print("==========================================================")
-        if self.cost_calc is not None:
+        if self.cost_calc is not None and opt_calc is not None:
+            print(
+                f"Total Gates   : {self.gates}({self.cost_calc.gates})"
+                f"[{opt_calc.gates}]"
+            )
+            print(
+                f"Total Garbages: {self.garbages}({self.cost_calc.garbages})"
+                f"[{opt_calc.garbages}]"
+            )
+            print(
+                f"Total Delay   : {self.delay}({self.cost_calc.delay})"
+                f"[{opt_calc.delay}]"
+            )
+            print(
+                f"Total Q. Cost : {self.quantumCost}({self.cost_calc.quantumCost})"
+                f"[{opt_calc.quantumCost}]"
+            )
+            print(
+                "  (Existing)(Proposed)[Optimized RPLA]"
+            )
+        elif self.cost_calc is not None:
             print(f"Total Gates   : {self.gates}({self.cost_calc.gates})")
             print(f"Total Garbages: {self.garbages}({self.cost_calc.garbages})")
             print(f"Total Delay   : {self.delay}({self.cost_calc.delay})")

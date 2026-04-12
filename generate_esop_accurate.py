@@ -21,6 +21,7 @@ Output Vector: 0 or 1 for each output (in multi-valued context for ESOP)
 """
 
 import os
+import shlex
 import sys
 import subprocess
 import tempfile
@@ -61,18 +62,32 @@ class ESoPGenerator:
             print(f"[{level}] {msg}")
     
     def blif_to_pla_via_abc(self, pla_output: Path) -> bool:
-        """Convert BLIF to PLA using ABC"""
+        """Convert BLIF to PLA using ABC write_pla (-f script; write_pla, not write)."""
         try:
-            # ABC commands to read BLIF and write to PLA
-            abc_cmd = f'read "{self.blif_file}"; write "{pla_output}"; quit'
-            
-            result = subprocess.run(
-                [ABC_BIN, "-q", "-c", abc_cmd],
-                capture_output=True,
-                text=True,
-                timeout=120,
-                env={**os.environ, "LC_ALL": "C"}  # Set locale for consistent output
-            )
+            blif_q = shlex.quote(str(self.blif_file.resolve()))
+            pla_q = shlex.quote(str(pla_output.resolve()))
+            script_body = f"read {blif_q}\nwrite_pla {pla_q}\nquit\n"
+            scr_path = None
+            try:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".scr", delete=False, encoding="utf-8"
+                ) as scr:
+                    scr.write(script_body)
+                    scr_path = scr.name
+                abc_bin = os.environ.get("ABC_BIN", ABC_BIN)
+                result = subprocess.run(
+                    [abc_bin, "-f", scr_path],
+                    capture_output=True,
+                    text=True,
+                    timeout=120,
+                    env={**os.environ, "LC_ALL": "C"},
+                )
+            finally:
+                if scr_path:
+                    try:
+                        os.unlink(scr_path)
+                    except OSError:
+                        pass
             
             if result.returncode != 0:
                 self.log(f"ABC error: {result.stderr}", "ERROR")

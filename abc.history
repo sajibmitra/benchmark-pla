@@ -1,0 +1,16 @@
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/log2.blif
+strash
+&get
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/log2.esop
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/max.blif
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/max.esop
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/multiplier.blif
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/multiplier.esop
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/sin.blif
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/sin.esop
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/sqrt.blif
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/sqrt.esop
+read /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/square.blif
+strash
+&get
+&exorcism -Q 2 -V 0 /Users/jackle/project/iccad2026/BenchmarkPLA/benchmarks/eda/epfl/arithmetic/square.esop

@@ -69,57 +69,95 @@ def validate_esop_format(esop_file: Path) -> dict:
             result["errors"].append("Missing or invalid input/output counts")
             result["status"] = "invalid"
             return result
-        
-        # Count and validate output lines
-        output_lines = []
+
+        num_products_declared = None
         for line in lines:
-            if not line.startswith('.') and line != '':
-                output_lines.append(line)
-        
-        if len(output_lines) != num_outputs:
-            result["warnings"].append(
-                f"Expected {num_outputs} outputs, found {len(output_lines)}"
-            )
-        
-        # Validate output lines format
-        for idx, line in enumerate(output_lines):
-            if idx >= num_outputs:
+            if line.startswith(".p "):
+                try:
+                    num_products_declared = int(line.split()[1])
+                except (ValueError, IndexError):
+                    result["errors"].append(f"Invalid .p line: {line}")
                 break
-            
-            # Check if line contains product terms (with ^ or constant 0)
-            if line == '0':
-                continue  # Valid for constant output
-            elif '^' in line:
-                # XOR format
-                terms = line.split('^')
-                for term in terms:
-                    term = term.strip()
-                    if not term:
-                        result["errors"].append(f"Empty term in output {idx+1}")
-                    elif all(c in '01-' for c in term):
-                        if len(term) != num_inputs and term != '0':
+
+        # Product/cube lines: non-header lines (excluding .e)
+        product_lines = []
+        for line in lines:
+            if line.startswith("."):
+                continue
+            product_lines.append(line)
+
+        if num_products_declared is not None:
+            # PLA-style ESOP (.i .o .p cube+outvec ... .e)
+            result["info"]["format"] = "pla_esop"
+            if len(product_lines) != num_products_declared:
+                result["errors"].append(
+                    f".p declares {num_products_declared} products but found "
+                    f"{len(product_lines)} cube lines"
+                )
+            for idx, line in enumerate(product_lines):
+                parts = line.split()
+                if len(parts) != 2:
+                    result["errors"].append(
+                        f"Product line {idx + 1}: expected '<cube> <outputs>', got {line!r}"
+                    )
+                    continue
+                cube, outv = parts[0], parts[1]
+                if len(cube) != num_inputs or not all(c in "01-" for c in cube):
+                    result["errors"].append(
+                        f"Product line {idx + 1}: cube must be length {num_inputs} "
+                        f"using 0, 1, -; got {cube!r}"
+                    )
+                if len(outv) != num_outputs or not all(c in "01" for c in outv):
+                    result["errors"].append(
+                        f"Product line {idx + 1}: output vector must be length "
+                        f"{num_outputs} of 0/1; got {outv!r}"
+                    )
+            output_lines = product_lines
+        else:
+            result["info"]["format"] = "xor_per_output"
+            # XOR-per-output format: one line per output function
+            output_lines = product_lines
+
+            if len(output_lines) != num_outputs:
+                result["warnings"].append(
+                    f"Expected {num_outputs} outputs, found {len(output_lines)}"
+                )
+
+            for idx, line in enumerate(output_lines):
+                if idx >= num_outputs:
+                    break
+
+                if line == "0":
+                    continue
+                elif "^" in line:
+                    terms = line.split("^")
+                    for term in terms:
+                        term = term.strip()
+                        if not term:
+                            result["errors"].append(f"Empty term in output {idx+1}")
+                        elif all(c in "01-" for c in term):
+                            if len(term) != num_inputs and term != "0":
+                                result["errors"].append(
+                                    f"Term '{term}' in output {idx+1} has {len(term)} bits, "
+                                    f"expected {num_inputs}"
+                                )
+                        else:
                             result["errors"].append(
-                                f"Term '{term}' in output {idx+1} has {len(term)} bits, "
-                                f"expected {num_inputs}"
+                                f"Invalid characters in term '{term}' (output {idx+1})"
+                            )
+                else:
+                    if all(c in "01-" for c in line):
+                        if len(line) != num_inputs:
+                            result["errors"].append(
+                                f"Output {idx+1} has {len(line)} bits, expected {num_inputs}"
                             )
                     else:
-                        result["errors"].append(
-                            f"Invalid characters in term '{term}' (output {idx+1})"
-                        )
-            else:
-                # Single term
-                if all(c in '01-' for c in line):
-                    if len(line) != num_inputs:
-                        result["errors"].append(
-                            f"Output {idx+1} has {len(line)} bits, expected {num_inputs}"
-                        )
-                else:
-                    result["errors"].append(f"Invalid format in output {idx+1}: {line}")
-        
+                        result["errors"].append(f"Invalid format in output {idx+1}: {line}")
+
         result["info"]["file_size"] = esop_file.stat().st_size
         result["info"]["total_lines"] = len(lines)
         result["info"]["output_lines"] = len(output_lines)
-        result["info"]["has_xor_terms"] = any('^' in line for line in output_lines)
+        result["info"]["has_xor_terms"] = any("^" in line for line in output_lines)
         
         if result["errors"]:
             result["status"] = "invalid"
