@@ -22,7 +22,13 @@ chmod +x download_data.sh   # once, if needed
 ./download_data.sh
 ```
 
-This creates `benchmarks/eda/` and fills it from the shared Drive folder (EPFL, MCNC, classic, etc.). The `benchmarks/` directory is gitignored.
+This downloads into `benchmarks/` from the shared Drive folder. The typical tree is:
+
+- `benchmarks/epfl/` — EPFL combinational benchmarks (BLIF, etc.)
+- `benchmarks/mcnc/` — MCNC (`Combinational/`, `Sequential/`, …)
+- `benchmarks/classic/classic/` — small classic ESOP PLAs
+
+Older layouts used `benchmarks/eda/{epfl,mcnc,classic/...}`; Python tools fall back there if the new paths are missing. The `benchmarks/` directory is gitignored.
 
 If `gdown` is not installed, the script runs `pip install gdown` for the current environment.
 
@@ -49,9 +55,9 @@ Use the prompts to:
 
 - Compute costs for ESOP PLAs (classic / MCNC / EPFL)
 - Convert expressions or BLIF to PLA / ESOP
-- Batch-convert BLIF under `benchmarks/eda/` (with or without EXORCISM-4 via ABC)
+- Batch-convert BLIF under `benchmarks/epfl/` and `benchmarks/mcnc/` (with or without EXORCISM-4 via ABC)
 
-Batch conversion options **(7)** and **(8)** expect the benchmark tree at `benchmarks/eda/epfl` and `benchmarks/eda/mcnc` after you run `download_data.sh`.
+Batch conversion options **(7)** and **(8)** expect EPFL and MCNC roots at `benchmarks/epfl` and `benchmarks/mcnc` (or the legacy `benchmarks/eda/epfl` and `benchmarks/eda/mcnc`) after you run `download_data.sh`.
 
 ## Batch convert from the repo root (non-interactive)
 
@@ -62,26 +68,25 @@ python3 convert_to_esop.py --source both
 
 Use `--source epfl` or `--source mcnc` to limit the set. Add `--no-exorcism` to skip ABC `&exorcism`. See `python3 convert_to_esop.py --help`.
 
-Other root-level helpers (also use `benchmarks/eda/` and `ABC_BIN`):
+Other root-level helpers (use `benchmarks/` paths via `python/benchmark_paths.py` and `ABC_BIN`):
 
-- `python3 batch_convert_arithmetic_smart.py` — EPFL arithmetic BLIF subset with timeouts
-- `python3 verify_esop_accuracy.py` — format checks on `*.esop` (expects data under `eda/` at repo root; see below)
+- `python3 batch_convert_arithmetic_smart.py` — EPFL arithmetic BLIF subset (`benchmarks/epfl/arithmetic/`) with timeouts
+- `python3 verify_esop_accuracy.py` — format checks on `*.esop` under `benchmarks/` (and optional `./eda`; see below)
 
-## Legacy scripts that expect `eda/` at the project root
+## Legacy `eda/` symlink at the project root
 
-Some scripts use `PROJECT_ROOT / "eda"` instead of `benchmarks/eda/`:
+Some older scripts use `PROJECT_ROOT / "eda"`:
 
 - `generate_esop_accurate.py`
 - `fast_esop_generator.py`
-- `verify_esop_accuracy.py`
 
-After downloading, you can link the dataset once:
+`verify_esop_accuracy.py` searches `benchmarks/**/*.esop` first and also `./eda` if present. To point `eda` at the dataset:
 
 ```bash
-ln -sfn benchmarks/eda eda
+ln -sfn benchmarks eda
 ```
 
-Then those scripts will see the same files as the download layout.
+(or link `eda` to whichever folder holds your trees).
 
 ## Java (optional)
 

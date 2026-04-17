@@ -535,7 +535,7 @@ class BLIFToESOP:
         """
         Write ESOP as a PLA-style .esop file: .i / .o / .p, then one row per cube
         (input cube of 0/1/-, space, output bit-vector), then .e — same layout as
-        classic benchmarks (e.g. benchmarks/eda/classic/5xp1.esop).
+        classic benchmarks (e.g. benchmarks/classic/classic/5xp1.esop).
         """
         try:
             if not self.products and not self.esop_terms:

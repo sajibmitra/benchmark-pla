@@ -17,9 +17,11 @@ fi
 
 FOLDER_URL="https://drive.google.com/drive/folders/1Bdn2Tp76YtzjLn_w-fs0XIPxXt47GYCi"
 
-echo "[INFO] Downloading full folder..."
+echo "[INFO] Downloading full folder into benchmarks/ ..."
+echo "[INFO] Expected layout includes benchmarks/epfl, benchmarks/mcnc,"
+echo "       and benchmarks/classic/classic (see README.md)."
 
-gdown --folder "$FOLDER_URL" -O benchmarks/eda
+gdown --folder "$FOLDER_URL" -O benchmarks/
 
 echo "======================================="
 echo "Done!"

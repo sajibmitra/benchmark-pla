@@ -16,19 +16,19 @@ import argparse
 
 ABC_BIN = "/tmp/abc-berkeley/abc"
 PROJECT_ROOT = Path(__file__).parent
-EDA_ROOT = PROJECT_ROOT / "benchmarks" / "eda"
 
 sys.path.insert(0, str(PROJECT_ROOT / "python"))
 from blif_parser import BLIFToESOP  # noqa: E402
+from benchmark_paths import epfl_benchmark_root, mcnc_benchmark_root  # noqa: E402
 
 
 def find_blif_files(source="both"):
     """Find all BLIF files in the benchmark directories."""
     sources = []
     if source in ("epfl", "both"):
-        sources.append(EDA_ROOT / "epfl")
+        sources.append(epfl_benchmark_root())
     if source in ("mcnc", "both"):
-        sources.append(EDA_ROOT / "mcnc")
+        sources.append(mcnc_benchmark_root())
 
     blif_files = []
     for src_dir in sources:

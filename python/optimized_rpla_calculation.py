@@ -3,7 +3,7 @@ Optimized RPLA cost model guided by algorithm.txt in this package.
 
 - Algorithm 3 (OrderingProducts): reorder products by descending cube size, then
   by a literal-by-literal sweep (Iv), remapping function→product indices.
-- EXOR and AND planes use the same realization as CostCalculation (Proposed Design):
+- EXOR and AND planes use the same realization as CostCalculation (Mitra2012 Design):
   Sorted FUNCTIONS, Rearranged PRODUCTS, EX-OR Plane, AND Plane, Delay — only the
   main banner reads "Optimized RPLA".
 """
@@ -12,8 +12,8 @@ from cost_calculation import CostCalculation
 
 
 class OptimizedRPLACalculation(CostCalculation):
-    def __init__(self, rpla_snap, total_literals: int):
-        super().__init__(rpla_snap)
+    def __init__(self, rpla_snap, total_literals: int, quiet=False):
+        super().__init__(rpla_snap, quiet=quiet)
         self._opt_total_literals = total_literals
 
     def ordering_products_alg3(self) -> None:
@@ -95,22 +95,23 @@ class OptimizedRPLACalculation(CostCalculation):
         self.quantumCost = self.gates
         
         # Print results
-        print("==========================================================")
-        print(f"                {plane_banner}")
-        print("==========================================================")
-        print("                Sorted FUNCTIONS ")
-        self.showFunctions()
-        print("==========================================================")
-        print("               Rearranged PRODUCTS ")
-        self.showProducts()
-        print("==========================================================")
-        print("             Calculation of EX-OR Plane")
-        print("==========================================================")
-        print(f"Total EXOR Operations : {total_xor_operations}")
-        print(f"TDOT                  : {self.xorTDOT}")
-        print(f"Feynman Gate          : {self.gates}")
-        print(f"Garbage, GB           : {self.garbages}")
-        print("==========================================================")
+        if not self.quiet:
+            print("==========================================================")
+            print(f"                {plane_banner}")
+            print("==========================================================")
+            print("                Sorted FUNCTIONS ")
+            self.showFunctions()
+            print("==========================================================")
+            print("               Rearranged PRODUCTS ")
+            self.showProducts()
+            print("==========================================================")
+            print("             Calculation of EX-OR Plane")
+            print("==========================================================")
+            print(f"Total EXOR Operations : {total_xor_operations}")
+            print(f"TDOT                  : {self.xorTDOT}")
+            print(f"Feynman Gate          : {self.gates}")
+            print(f"Garbage, GB           : {self.garbages}")
+            print("==========================================================")
 
     def andPlane(self):
         """
@@ -172,6 +173,7 @@ class OptimizedRPLACalculation(CostCalculation):
         # For Optimized RPLA: Total number of Gates = Total number of Templates
         self.gates = sum(template_counts.values())
         self.garbages += total_garbages
+        self.ancilla_input_count = self._opt_total_literals - and_tdot
         
         # Calculate delay (AND plane only)
         self.delay = 0
@@ -179,26 +181,27 @@ class OptimizedRPLACalculation(CostCalculation):
             self.delay = max(self.delay, product.delayCountAND)
         
         # Print results
-        print("==========================================================")
-        print("             Calculation of AND Plane")
-        print("==========================================================")
-        print(f"Total AND Operations: {total_and_operations}")
-        print(f"TDOT                : {and_tdot}")
-        print(" {, α, β, γ, π}")
-        print(f"Total Templates α  : {template_counts['α']}")
-        print(f"Total Templates β  : {template_counts['β']}")
-        print(f"Total Templates γ  : {template_counts['γ']}")
-        print(f"Total Templates π  : {template_counts['π']}")
-        print(f"Total Templates α′ : {template_counts['α_prime']}")
-        print(f"Total Templates β′ : {template_counts['β_prime']}")
-        print(f"Total Templates γ′ : {template_counts['γ_prime']}")
-        print(f"Total Templates π′ : {template_counts['π_prime']}")
-        print(f"Garbage, GB         : {total_garbages}")
-        print("==========================================================")
-        print("                  Delay ")
-        print("==========================================================")
-        print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
-        print("==========================================================")
+        if not self.quiet:
+            print("==========================================================")
+            print("             Calculation of AND Plane")
+            print("==========================================================")
+            print(f"Total AND Operations: {total_and_operations}")
+            print(f"TDOT                : {and_tdot}")
+            print(" {, α, β, γ, π}")
+            print(f"Total Templates α  : {template_counts['α']}")
+            print(f"Total Templates β  : {template_counts['β']}")
+            print(f"Total Templates γ  : {template_counts['γ']}")
+            print(f"Total Templates π  : {template_counts['π']}")
+            print(f"Total Templates α′ : {template_counts['α_prime']}")
+            print(f"Total Templates β′ : {template_counts['β_prime']}")
+            print(f"Total Templates γ′ : {template_counts['γ_prime']}")
+            print(f"Total Templates π′ : {template_counts['π_prime']}")
+            print(f"Garbage, GB         : {total_garbages}")
+            print("==========================================================")
+            print("                  Delay ")
+            print("==========================================================")
+            print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
+            print("==========================================================")
 
     def _get_product_frequency(self, product_idx: int) -> int:
         """Get how many functions contain this product."""

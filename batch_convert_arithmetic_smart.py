@@ -14,9 +14,10 @@ from typing import List, Tuple
 sys.path.insert(0, str(Path(__file__).parent / "python"))
 
 from blif_parser import BLIFToESOP
+from benchmark_paths import epfl_arithmetic_dir
 
 # Configuration
-SOURCE_DIR = Path(__file__).parent / "benchmarks" / "eda" / "epfl" / "arithmetic"
+SOURCE_DIR = epfl_arithmetic_dir()
 TIMEOUT_PER_CIRCUIT = 600  # 10 minutes per circuit (reduced for testing)
 SKIP_COMPLEX = ["adder", "div", "hyp"]  # Known to be too complex
 

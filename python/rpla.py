@@ -1,4 +1,11 @@
+import os
 from pathlib import Path
+from benchmark_paths import (
+    benchmarks_root,
+    classic_esop_benchmark_dir,
+    epfl_benchmark_root,
+    mcnc_benchmark_root,
+)
 from function import Function
 from product import Product
 from blif_parser import BLIFToESOP, BLIFBatchConverter
@@ -24,17 +31,18 @@ class RPLA:
         source_dirs = []
 
         if self.selectedMenu == 2:
+            mcnc = mcnc_benchmark_root()
             if self.selectedBenchmarkSubdir:
-                source_dirs = [project_root / "benchmarks" / "eda" / "mcnc" / self.selectedBenchmarkSubdir]
+                source_dirs = [mcnc / self.selectedBenchmarkSubdir]
             else:
-                source_dirs = [project_root / "benchmarks" / "eda" / "mcnc"]
+                source_dirs = [mcnc]
         elif self.selectedMenu == 3:
-            source_dirs = [project_root / "benchmarks" / "eda" / "epfl"]
+            source_dirs = [epfl_benchmark_root()]
         else:
             source_dirs = [
-                project_root / "benchmarks" / "eda" / "classic" / "classic",
-                project_root / "classic" ,
-                project_root / "benchmarks" / "eda",
+                classic_esop_benchmark_dir(),
+                project_root / "classic",
+                benchmarks_root(),
             ]
 
         if file_path.is_absolute():
@@ -153,6 +161,17 @@ class RPLA:
             pattern[func_index] = "1"
         return "".join(pattern)
 
+    def _skip_existing_calculation(self):
+        """MCNC/EPFL (web benchmarks) and RPLA_SKIP_EXISTING omit the legacy Existing model."""
+        if os.environ.get("RPLA_SKIP_EXISTING", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        ):
+            return True
+        return self.selectedMenu in (2, 3)
+
     def inputFormat(self, data):
         tokens = data.split()
         i = 0
@@ -172,25 +191,34 @@ class RPLA:
                 from types import SimpleNamespace
 
                 from cost_calculation import CostCalculation
-                from existing_calculation import ExistingCalculation
+                from existing_calculation import (
+                    ExistingCalculation,
+                    show_mitra2012_optimized_final,
+                )
                 from optimized_rpla_calculation import OptimizedRPLACalculation
 
                 snap = SimpleNamespace(
                     functions=copy.deepcopy(self.functions),
                     products=copy.deepcopy(self.products),
                 )
-                costCalculation = CostCalculation(self)
+                benchmark_two_column = self._skip_existing_calculation()
+                costCalculation = CostCalculation(self, quiet=benchmark_two_column)
                 costCalculation.xorPlane()
                 costCalculation.andPlane()
-                existingCalculation = ExistingCalculation(self, costCalculation)
-                existingCalculation.xorPlane()
-                existingCalculation.andPlane()
 
-                opt_calc = OptimizedRPLACalculation(snap, self.totalLiterals)
+                opt_calc = OptimizedRPLACalculation(
+                    snap, self.totalLiterals, quiet=benchmark_two_column
+                )
                 opt_calc.xorPlane()
                 opt_calc.andPlane()
 
-                existingCalculation.showFinalResult(opt_calc=opt_calc)
+                if benchmark_two_column:
+                    show_mitra2012_optimized_final(self, costCalculation, opt_calc)
+                else:
+                    existingCalculation = ExistingCalculation(self, costCalculation)
+                    existingCalculation.xorPlane()
+                    existingCalculation.andPlane()
+                    existingCalculation.showFinalResult(opt_calc=opt_calc)
                 self.time = 0
                 for i in range(self.totalOutputs - 1):
                     for j in range(i + 1, self.totalOutputs):
@@ -278,16 +306,15 @@ class RPLA:
     def _batchConvertBLIFToESOP(self, source, use_exorcism: bool = True):
         """Batch convert BLIF files from EPFL/MCNC benchmarks (ABC + optional EXORCISM-4)."""
         project_root = Path(__file__).resolve().parent.parent
-        eda_root = project_root / "benchmarks" / "eda"
-        
-        # Determine which directories to convert
+
+        # Determine which directories to convert (benchmarks/epfl, benchmarks/mcnc)
         dirs_to_convert = []
         if source == "epfl":
-            dirs_to_convert = [eda_root / "epfl"]
+            dirs_to_convert = [epfl_benchmark_root()]
         elif source == "mcnc":
-            dirs_to_convert = [eda_root / "mcnc"]
+            dirs_to_convert = [mcnc_benchmark_root()]
         elif source == "both":
-            dirs_to_convert = [eda_root / "epfl", eda_root / "mcnc"]
+            dirs_to_convert = [epfl_benchmark_root(), mcnc_benchmark_root()]
         else:
             # Try as a path
             path = Path(source)
@@ -335,17 +362,17 @@ def main():
         print("RPLA - Reversible PLA Synthesis Tool")
         print("="*70)
         print("(1) Calculation of Cost of an ESOP PLA (classic)")
-        print("(2) Calculation of Cost of an ESOP PLA (MCNC)")
-        print("(3) Calculation of Cost of an ESOP PLA (EPFL)")
-        print("(4) Convert SOP Expression into PLA (.pla)")
-        print("(5) Convert ESOP Expression into ESOP PLA (.esop)")
-        print("(6) Convert BLIF to ESOP (ABC + Custom Parser) without EXORCISM-4")
-        print("(7) Batch Convert EPFL/MCNC Benchmarks to ESOP without EXORCISM-4")
-        print("(8) Batch Convert EPFL/MCNC Benchmarks to ESOP (ABC + EXORCISM-4)")
+        # print("(2) Calculation of Cost of an ESOP PLA (MCNC)")
+        # print("(3) Calculation of Cost of an ESOP PLA (EPFL)")
+        # print("(4) Convert SOP Expression into PLA (.pla)")
+        # print("(5) Convert ESOP Expression into ESOP PLA (.esop)")
+        # print("(6) Convert BLIF to ESOP (ABC + Custom Parser) without EXORCISM-4")
+        # print("(7) Batch Convert EPFL/MCNC Benchmarks to ESOP without EXORCISM-4")
+        # print("(8) Batch Convert EPFL/MCNC Benchmarks to ESOP (ABC + EXORCISM-4)")
         print("(9) Exit")
         print("="*70)
-        select = input("Please Enter a number between 1 and 9 : ").strip()
-        
+        # select = input("Please Enter a number between 1 and 9 : ").strip()
+        select = input("Please Enter a number 1 or 9 : ").strip()
         if select == "1":
             rplaObj.selectedMenu = 1
             file_name = input("\nEnter File (.esop) Name: ")

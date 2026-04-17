@@ -9,7 +9,32 @@ from pathlib import Path
 import json
 
 PROJECT_ROOT = Path(__file__).parent
-EDA_ROOT = PROJECT_ROOT / "eda"
+sys.path.insert(0, str(PROJECT_ROOT / "python"))
+from benchmark_paths import benchmarks_root  # noqa: E402
+
+_LEGACY_EDA = PROJECT_ROOT / "eda"
+
+
+def _discover_esop_files() -> list[Path]:
+    """All *.esop under benchmarks/ and optional legacy ./eda symlink."""
+    found = set()
+    bench = benchmarks_root()
+    if bench.is_dir():
+        found.update(bench.rglob("*.esop"))
+    if _LEGACY_EDA.is_dir():
+        found.update(_LEGACY_EDA.rglob("*.esop"))
+    return sorted(found)
+
+
+def _esop_group(path: Path) -> str:
+    parts = path.parts
+    if "epfl" in parts:
+        return "epfl"
+    if "mcnc" in parts:
+        return "mcnc"
+    if "classic" in parts:
+        return "classic"
+    return "other"
 
 
 def validate_esop_format(esop_file: Path) -> dict:
@@ -182,22 +207,24 @@ def verify_all_esop_files():
     print("=" * 70)
     print()
     
-    esop_files = sorted(EDA_ROOT.rglob("*.esop"))
-    
+    esop_files = _discover_esop_files()
+
     print(f"Found {len(esop_files)} ESOP files to verify\n")
-    
-    # Categorize by source
-    epfl_files = [f for f in esop_files if '/epfl/' in str(f)]
-    mcnc_files = [f for f in esop_files if '/mcnc/' in str(f)]
-    classic_files = [f for f in esop_files if '/classic/' in str(f)]
-    
+
+    # Categorize by path (works on Windows and POSIX)
+    epfl_files = [f for f in esop_files if _esop_group(f) == "epfl"]
+    mcnc_files = [f for f in esop_files if _esop_group(f) == "mcnc"]
+    classic_files = [f for f in esop_files if _esop_group(f) == "classic"]
+    other_files = [f for f in esop_files if _esop_group(f) == "other"]
+
     results = {
         "epfl": {"valid": 0, "valid_with_warnings": 0, "invalid": 0, "error": 0},
         "mcnc": {"valid": 0, "valid_with_warnings": 0, "invalid": 0, "error": 0},
         "classic": {"valid": 0, "valid_with_warnings": 0, "invalid": 0, "error": 0},
+        "other": {"valid": 0, "valid_with_warnings": 0, "invalid": 0, "error": 0},
     }
-    
-    details = {"epfl": [], "mcnc": [], "classic": []}
+
+    details = {"epfl": [], "mcnc": [], "classic": [], "other": []}
     
     # Verify EPFL
     print("VERIFYING EPFL BENCHMARKS")
@@ -258,14 +285,30 @@ def verify_all_esop_files():
     
     print(f"\nClassic Summary:")
     print(f"  ✓ Valid: {results['classic']['valid']}/{len(classic_files)}")
-    
+
+    if other_files:
+        print("\nVERIFYING OTHER BENCHMARK ESOP FILES")
+        print("-" * 70)
+        for idx, esop_file in enumerate(other_files, 1):
+            validation = validate_esop_format(esop_file)
+            results["other"][validation["status"]] += 1
+            details["other"].append(validation)
+            if validation["status"] != "valid":
+                print(f"[{idx:2d}] ⚠ {esop_file.name:40s} - {validation['status']}")
+        print(f"\nOther Summary:")
+        print(f"  ✓ Valid: {results['other']['valid']}/{len(other_files)}")
+
     # Overall summary
     print("\n" + "=" * 70)
     print("OVERALL VERIFICATION SUMMARY")
     print("=" * 70)
     
-    total_valid = (results["epfl"]["valid"] + results["mcnc"]["valid"] + 
-                   results["classic"]["valid"])
+    total_valid = (
+        results["epfl"]["valid"]
+        + results["mcnc"]["valid"]
+        + results["classic"]["valid"]
+        + results["other"]["valid"]
+    )
     total_files = len(esop_files)
     
     print(f"\nTotal ESOP files: {total_files}")

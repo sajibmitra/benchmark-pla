@@ -162,7 +162,7 @@ class ExistingCalculation:
                 f"[{opt_calc.quantumCost}]"
             )
             print(
-                "  (Existing)(Proposed)[Optimized RPLA]"
+                "  (Existing)(Mitra2012)[Optimized RPLA]"
             )
         elif self.cost_calc is not None:
             print(f"Total Gates   : {self.gates}({self.cost_calc.gates})")
@@ -211,3 +211,18 @@ class ExistingCalculation:
             line += ",".join(f"P{pos}" for pos in function.productsList)
             print(line)
         print("----------------------------------------------------------")
+
+
+def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc):
+    """Final summary for benchmark flows: [Mitra2012] vs [Optimized(template-driven)] only."""
+    print("==========================================================")
+    print(f"           Final Calculation of {rpla.esopFileName}")
+    print("==========================================================")
+    print(f"Total Gates   : {cost_calc.gates}[{opt_calc.gates}]")
+    print(f"Total Garbages: {cost_calc.garbages}[{opt_calc.garbages}]")
+    print(
+        "Count of Ancilla Input : "
+        f"{cost_calc.ancilla_input_count}[{opt_calc.ancilla_input_count}]"
+    )
+    print(f"Total Q. Cost : {cost_calc.quantumCost}[{opt_calc.quantumCost}]")
+    print("  [Mitra2012][Optimized(template-driven)]")

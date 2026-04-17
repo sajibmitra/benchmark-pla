@@ -2,7 +2,7 @@ from rpla import RPLA
 from literal import Literal
 
 class CostCalculation:
-    def __init__(self, rpla):
+    def __init__(self, rpla, quiet=False):
         self.functions = rpla.functions
         self.products = rpla.products
         self.finalProducts = []
@@ -12,8 +12,10 @@ class CostCalculation:
         self.gates = 0
         self.delay = 0
         self.xorTDOT = 0
+        self.quiet = quiet
+        self.ancilla_input_count = 0
 
-    def xorPlane(self, plane_banner="Proposed Design"):
+    def xorPlane(self, plane_banner="Mitra2012 Design"):
         self.xorTDOT = 0
         totalXOROperation = 0
         self.sortFunctions()
@@ -65,22 +67,23 @@ class CostCalculation:
         self.gates = totalXOROperation + len(self.functions) - self.xorTDOT
         self.garbages = len(self.products) - self.xorTDOT
         self.quantumCost = self.gates
-        print("==========================================================")
-        print(f"                {plane_banner}")
-        print("==========================================================")
-        print("                Sorted FUNCTIONS ")
-        self.showFunctions()
-        print("==========================================================")
-        print("               Rearranged PRODUCTS ")
-        self.showProducts()
-        print("==========================================================")
-        print("             Calculation of EX-OR Plane")
-        print("==========================================================")
-        print(f"Total EXOR Operations : {totalXOROperation}")
-        print(f"TDOT                  : {self.xorTDOT}")
-        print(f"Feynman Gate          : {self.gates}")
-        print(f"Garbage, GB           : {self.garbages}")
-        print("==========================================================")
+        if not self.quiet:
+            print("==========================================================")
+            print(f"                {plane_banner}")
+            print("==========================================================")
+            print("                Sorted FUNCTIONS ")
+            self.showFunctions()
+            print("==========================================================")
+            print("               Rearranged PRODUCTS ")
+            self.showProducts()
+            print("==========================================================")
+            print("             Calculation of EX-OR Plane")
+            print("==========================================================")
+            print(f"Total EXOR Operations : {totalXOROperation}")
+            print(f"TDOT                  : {self.xorTDOT}")
+            print(f"Feynman Gate          : {self.gates}")
+            print(f"Garbage, GB           : {self.garbages}")
+            print("==========================================================")
 
     def andPlane(self):
         andTDOT = 0
@@ -127,19 +130,21 @@ class CostCalculation:
             self.delay = max(self.delay, self.products[j].delayCountAND + self.products[j].delayCountXOR)
         self.gates += totalANDOperation + totalXOROperation
         self.garbages += totalGarbages
-        print("==========================================================")
-        print("             Calculation of AND Plane")
-        print("==========================================================")
-        print(f"Total AND Operations: {totalANDOperation}")
-        print(f"TDOT                : {andTDOT}")
-        print(f"Total MUX Gates (MG): {totalANDOperation}")
-        print(f"Total Feynman Gate  : {totalXOROperation}")
-        print(f"Garbage, GB         : {totalGarbages}")
-        print("==========================================================")
-        print("                  Delay ")
-        print("==========================================================")
-        print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
-        print("==========================================================")
+        self.ancilla_input_count = len(self.literals) - andTDOT
+        if not self.quiet:
+            print("==========================================================")
+            print("             Calculation of AND Plane")
+            print("==========================================================")
+            print(f"Total AND Operations: {totalANDOperation}")
+            print(f"TDOT                : {andTDOT}")
+            print(f"Total MUX Gates (MG): {totalANDOperation}")
+            print(f"Total Feynman Gate  : {totalXOROperation}")
+            print(f"Garbage, GB         : {totalGarbages}")
+            print("==========================================================")
+            print("                  Delay ")
+            print("==========================================================")
+            print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
+            print("==========================================================")
 
     def initializeLiteral(self):
         self.literals = []

@@ -116,4 +116,4 @@ End
 
 Implementation note: optimized_rpla_calculation.py applies Algorithm 3
 (OrderingProducts) before calling the same xorPlane/andPlane realization as
-Proposed Design (Sorted FUNCTIONS, Rearranged PRODUCTS, EX-OR / AND planes, Delay).
+Mitra2012 Design (Sorted FUNCTIONS, Rearranged PRODUCTS, EX-OR / AND planes, Delay).
