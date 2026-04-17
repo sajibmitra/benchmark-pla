@@ -163,14 +163,14 @@ class RPLA:
 
     def _skip_existing_calculation(self):
         """MCNC/EPFL (web benchmarks) and RPLA_SKIP_EXISTING omit the legacy Existing model."""
-        if os.environ.get("RPLA_SKIP_EXISTING", "").strip().lower() in (
-            "1",
-            "true",
-            "yes",
-            "on",
-        ):
-            return True
-        return self.selectedMenu in (2, 3)
+        # if os.environ.get("RPLA_SKIP_EXISTING", "").strip().lower() in (
+        #     "1",
+        #     "true",
+        #     "yes",
+        #     "on",
+        # ):
+        return True
+        # return self.selectedMenu in (2, 3)
 
     def inputFormat(self, data):
         tokens = data.split()
@@ -215,7 +215,9 @@ class RPLA:
                 if benchmark_two_column:
                     show_mitra2012_optimized_final(self, costCalculation, opt_calc)
                 else:
-                    existingCalculation = ExistingCalculation(self, costCalculation)
+                    existingCalculation = ExistingCalculation(
+                        self, costCalculation, quiet=True
+                    )
                     existingCalculation.xorPlane()
                     existingCalculation.andPlane()
                     existingCalculation.showFinalResult(opt_calc=opt_calc)

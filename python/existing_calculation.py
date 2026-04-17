@@ -2,7 +2,7 @@ from rpla import RPLA
 from literal import Literal
 
 class ExistingCalculation:
-    def __init__(self, rpla, cost_calc=None):
+    def __init__(self, rpla, cost_calc=None, quiet=False):
         self.rpla = rpla
         self.functions = rpla.functions
         self.products = rpla.products
@@ -13,6 +13,7 @@ class ExistingCalculation:
         self.gates = 0
         self.delay = 0
         self.cost_calc = cost_calc
+        self.quiet = quiet
 
     def funProRearrange(self):
         mapping = list(range(len(self.products)))
@@ -68,21 +69,22 @@ class ExistingCalculation:
         self.gates = totalXOROperation + len(self.functions) - xorTDOT
         self.garbages = len(self.products) - xorTDOT
         self.quantumCost = self.gates
-        print("==========================================================")
-        print("                Existing Calculation")
-        print("==========================================================")
-        print("      Rearranged FUNCTIONS & PRODUCTS ")
-        print("==========================================================")
-        self.showFunctions()
-        self.showProducts()
-        print("==========================================================")
-        print("                     EXOR Plane")
-        print("==========================================================")
-        print(f"Total EXOR Operations : {totalXOROperation}")
-        print(f"TDOT                  : {xorTDOT}")
-        print(f"Feynman Gate          : {self.gates}")
-        print(f"Garbage, GB           : {self.garbages}")
-        print("==========================================================")
+        if not self.quiet:
+            print("==========================================================")
+            print("                Existing Calculation")
+            print("==========================================================")
+            print("      Rearranged FUNCTIONS & PRODUCTS ")
+            print("==========================================================")
+            self.showFunctions()
+            self.showProducts()
+            print("==========================================================")
+            print("                     EXOR Plane")
+            print("==========================================================")
+            print(f"Total EXOR Operations : {totalXOROperation}")
+            print(f"TDOT                  : {xorTDOT}")
+            print(f"Feynman Gate          : {self.gates}")
+            print(f"Garbage, GB           : {self.garbages}")
+            print("==========================================================")
 
     def andPlane(self):
         andTDOT = 0
@@ -128,17 +130,18 @@ class ExistingCalculation:
             self.delay = max(self.delay, product.delayCountAND + product.delayCountXOR)
         self.gates += totalANDOperation + totalXOROperation
         self.garbages += totalGarbages
-        print("==========================================================")
-        print("                    AND Plane")
-        print("==========================================================")
-        print(f"Total AND Operations: {totalANDOperation}")
-        print(f"TDOT                : {andTDOT}")
-        print(f"Total Toffoli Gates : {totalANDOperation}")
-        print(f"Total Feynman Gates : {totalXOROperation}")
-        print(f"Garbage, GB         : {totalGarbages}\n")
-        print("==========================================================")
-        print("                  Delay ")
-        print("==========================================================")
+        if not self.quiet:
+            print("==========================================================")
+            print("                    AND Plane")
+            print("==========================================================")
+            print(f"Total AND Operations: {totalANDOperation}")
+            print(f"TDOT                : {andTDOT}")
+            print(f"Total Toffoli Gates : {totalANDOperation}")
+            print(f"Total Feynman Gates : {totalXOROperation}")
+            print(f"Garbage, GB         : {totalGarbages}\n")
+            print("==========================================================")
+            print("                  Delay ")
+            print("==========================================================")
 
     def showFinalResult(self, opt_calc=None):
         print("==========================================================")
@@ -216,7 +219,7 @@ class ExistingCalculation:
 def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc):
     """Final summary for benchmark flows: [Mitra2012] vs [Optimized(template-driven)] only."""
     print("==========================================================")
-    print(f"           Final Calculation of {rpla.esopFileName}")
+    print(f"           Final Calculation (Mitra2012)[Optimized RPLA] of {rpla.esopFileName}")
     print("==========================================================")
     print(f"Total Gates   : {cost_calc.gates}[{opt_calc.gates}]")
     print(f"Total Garbages: {cost_calc.garbages}[{opt_calc.garbages}]")
