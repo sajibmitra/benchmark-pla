@@ -23,7 +23,8 @@ class RPLA:
     time = 0
 
     def __init__(self):
-        pass
+        # When True, parsing stops at `.e` without running cost pipelines (for debug harnesses).
+        self.skip_pipeline_on_dot_e = False
 
     def resolve_input_file(self, fileName):
         file_path = Path(fileName)
@@ -162,15 +163,8 @@ class RPLA:
         return "".join(pattern)
 
     def _skip_existing_calculation(self):
-        """MCNC/EPFL (web benchmarks) and RPLA_SKIP_EXISTING omit the legacy Existing model."""
-        # if os.environ.get("RPLA_SKIP_EXISTING", "").strip().lower() in (
-        #     "1",
-        #     "true",
-        #     "yes",
-        #     "on",
-        # ):
-        return True
-        # return self.selectedMenu in (2, 3)
+        """When True: quiet Mitra/Optimized calcs and two-column summary only (MCNC/EPFL)."""
+        return self.selectedMenu in (2, 3)
 
     def inputFormat(self, data):
         tokens = data.split()
@@ -187,6 +181,8 @@ class RPLA:
                 self.totalProducts = int(tokens[i + 1])
                 i += 2
             elif token.lower() == ".e":
+                if self.skip_pipeline_on_dot_e:
+                    return 0
                 import copy
                 from types import SimpleNamespace
 
@@ -209,10 +205,10 @@ class RPLA:
                 opt_calc = OptimizedRPLACalculation(
                     snap, self.totalLiterals, quiet=benchmark_two_column
                 )
-                opt_calc.xorPlane()
                 opt_calc.andPlane()
+                opt_calc.xorPlane()
 
-                if benchmark_two_column:
+                if self.selectedMenu in (1, 2, 3):
                     show_mitra2012_optimized_final(self, costCalculation, opt_calc)
                 else:
                     existingCalculation = ExistingCalculation(

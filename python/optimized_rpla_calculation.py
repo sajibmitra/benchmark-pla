@@ -50,7 +50,33 @@ class OptimizedRPLACalculation(CostCalculation):
         self.products.clear()
         self.products.extend(p_q)
 
-    def xorPlane(self, plane_banner="Optimized RPLA"):
+    def _refresh_product_literals(self, product) -> None:
+        """Recompute length and literals[] from bitPattern after pattern edits."""
+        product.literals.clear()
+        product.length = 0
+        for idx, ch in enumerate(product.bitPattern):
+            if ch in ("0", "1"):
+                product.length += 1
+                product.literals.append(idx)
+
+    def swap_literals_alg2(self, line_i: int, line_j: int) -> None:
+        """
+        Algorithm 2: SwapLiterals(L_i, L_j)
+        Exchange input signals on lines L_i and L_j: swap cube columns i and j
+        in every product (PLA bit string).
+        """
+        if line_i == line_j:
+            return
+        n = max(self._opt_total_literals, line_i + 1, line_j + 1)
+        for p in self.products:
+            bp = list(p.bitPattern)
+            while len(bp) < n:
+                bp.append("-")
+            bp[line_i], bp[line_j] = bp[line_j], bp[line_i]
+            p.bitPattern = "".join(bp)
+            self._refresh_product_literals(p)
+
+    def xorPlane(self):
         """
         Algorithm 5: ConstructXORplane(Pv, Fv)
         EX-OR plane generates final outputs from products.
@@ -97,14 +123,6 @@ class OptimizedRPLACalculation(CostCalculation):
         # Print results
         if not self.quiet:
             print("==========================================================")
-            print(f"                {plane_banner}")
-            print("==========================================================")
-            print("                Sorted FUNCTIONS ")
-            self.showFunctions()
-            print("==========================================================")
-            print("               Rearranged PRODUCTS ")
-            self.showProducts()
-            print("==========================================================")
             print("             Calculation of EX-OR Plane")
             print("==========================================================")
             print(f"Total EXOR Operations : {total_xor_operations}")
@@ -113,13 +131,32 @@ class OptimizedRPLACalculation(CostCalculation):
             print(f"Garbage, GB           : {self.garbages}")
             print("==========================================================")
 
-    def andPlane(self):
+    def andPlane(self, plane_banner="Optimized RPLA"):
         """
         Algorithm 4: ConstructANDPlane(Iv, Pv)
         Build AND plane using UMG and UNG gates with literal reordering.
         """
+
+        # if not self.quiet:
+        #     print("==========================================================")
+        #     print(f"                {plane_banner}")
+        #     print("==========================================================")
+        #     print("                Before Ordering Products ")
+        #     self.showFunctions()
+        #     print("----------------------------------------------------------")
+        #     self.showProducts()
+        #     print("==========================================================")
+            
         # Call Algorithm 3: OrderingProducts as specified in Algorithm 4
         self.ordering_products_alg3()
+        
+        if not self.quiet:
+            print("==========================================================")
+            print("                After Ordering Products ")
+            # self.showFunctions()
+            # print("----------------------------------------------------------")
+            self.showProducts()
+            print("==========================================================")
         
         # Initialize P_QG (garbage products), ndot counter, and template counters
         p_qg = set()
@@ -148,21 +185,29 @@ class OptimizedRPLACalculation(CostCalculation):
                             else:
                                 if self._product_contains_literals(i, [g, h]):
                                     swap_flag -= 1
-                                    pivot_p, template = self._op_and(g, h, swap_flag)
-                                    template_counts[template] += 1
-                                    
-                                    if self.products[i].getSize() > 2:
-                                        # Process additional literals
-                                        for j in range(h + 1, self._opt_total_literals):
-                                            if self._product_contains_literal(i, j):
-                                                p_g = pivot_p
-                                                pivot_p, template = self._op_and(pivot_p, j, False)
-                                                template_counts[template] += 1
-                                        p_qg.add(p_g)  # Add new garbage
-                else:
-                    # No mutual products, use TDOT (•)
-                    ndot += 1
-        
+                                la = self._signed_literal_from_product(i, g)
+                                lb = self._signed_literal_from_product(i, h)
+                                pivot_p, template = self._op_and(la, lb, swap_flag)
+                                template_counts[template] += 1
+
+                                if self.products[i].getSize() > 2:
+                                    p_g = None
+                                    for j in range(h + 1, self._opt_total_literals):
+                                        if self._product_contains_literal(i, j):
+                                            p_g = pivot_p
+                                            lj = self._signed_literal_from_product(i, j)
+                                            pivot_p, template = self._op_and(
+                                                pivot_p, lj, False
+                                            )
+                                            template_counts[template] += 1
+                                    if p_g is not None:
+                                        p_qg.add(p_g)
+                        else:
+                            # Algorithm 4 line 29: SizeOf(P_i) <= 1 → ndot (•)
+                            ndot += 1
+                # else:
+                #     # Algorithm 4 line 32: no product contains both I_g and I_h
+                #     self.swap_literals_alg2(g, h)
         # Calculate AND plane statistics
         and_tdot = ndot
         total_and_operations = sum(p.getSize() - 1 for p in self.products if p.getSize() > 0)
@@ -183,11 +228,12 @@ class OptimizedRPLACalculation(CostCalculation):
         # Print results
         if not self.quiet:
             print("==========================================================")
-            print("             Calculation of AND Plane")
+            print("               Rearranged PRODUCTS ")
+            self.showProducts()
             print("==========================================================")
             print(f"Total AND Operations: {total_and_operations}")
             print(f"TDOT                : {and_tdot}")
-            print(" {, α, β, γ, π}")
+            print("Templates {α, β, γ, π} and {α′, β′, γ′, π′}")
             print(f"Total Templates α  : {template_counts['α']}")
             print(f"Total Templates β  : {template_counts['β']}")
             print(f"Total Templates γ  : {template_counts['γ']}")
@@ -247,6 +293,26 @@ class OptimizedRPLACalculation(CostCalculation):
         return (literal < len(product.bitPattern) and 
                 product.bitPattern[literal] in ('0', '1'))
 
+    def _signed_literal_from_product(self, product_idx: int, column_idx: int) -> int:
+        """
+        Map cube column `column_idx` in product `product_idx` to OpAND literal form:
+        +k  = uncomplemented variable on line k
+        -k  = complemented variable on line k
+        where k = column_idx + 1 (1-based line id, matches abs() in _apply_template_and).
+
+        Cube encoding: '1' → positive literal, '0' → negative literal (see ESOP PLA convention).
+        """
+        p = self.products[product_idx]
+        if column_idx >= len(p.bitPattern):
+            return 0
+        ch = p.bitPattern[column_idx]
+        k = column_idx + 1
+        if ch == "1":
+            return k
+        if ch == "0":
+            return -k
+        return 0
+
     def _op_and(self, lit_a: int, lit_b: int, swap_flag: int) -> tuple:
         """
         Algorithm 1: OpAND(p, q, swapFlag)
@@ -255,14 +321,11 @@ class OptimizedRPLACalculation(CostCalculation):
         Templates {α, β, γ, π} and their complements {α', β', γ', π'} are used
         based on the complement status of literals p and q.
 
-        In RPLA context:
-        - Positive literal: variable appears uncomplemented (e.g., x1)
-        - Negative literal: variable appears complemented (e.g., ~x1)
-        - swapFlag determines which template to apply
+        Args lit_a, lit_b: signed 1-based line ids from the current product cube
+        (_signed_literal_from_product) or intermediate results from _apply_template_and:
+        positive = uncomplemented, negative = complemented.
+        swap_flag selects the primed vs unprimed template family.
         """
-        # Determine if literals are complemented
-        # In our implementation, we assume literals are represented as integers
-        # where positive values indicate uncomplemented and negative indicate complemented
         is_p_complemented = lit_a < 0
         is_q_complemented = lit_b < 0
 
@@ -270,17 +333,17 @@ class OptimizedRPLACalculation(CostCalculation):
         if is_p_complemented:
             if is_q_complemented:
                 # Both complemented
-                template = 'π' if swap_flag == 0 else 'π_prime'
+                template = 'π_prime' if swap_flag == 0 else 'π'
             else:
                 # p complemented, q not complemented
-                template = 'β' if swap_flag == 0 else 'β_prime'
+                template = 'β_prime' if swap_flag == 0 else 'β'
         else:
             if is_q_complemented:
                 # p not complemented, q complemented
-                template = 'α' if swap_flag == 0 else 'α_prime'
+                template = 'α_prime' if swap_flag == 0 else 'α'
             else:
                 # Neither complemented
-                template = 'γ' if swap_flag == 0 else 'γ_prime'
+                template = 'γ_prime' if swap_flag == 0 else 'γ'
 
         # Apply the selected template operation
         # Since the actual template operations aren't specified in detail,

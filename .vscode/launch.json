@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: RPLA (rpla.py)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/rpla.py",
+      "cwd": "${workspaceFolder}/python",
+      "console": "integratedTerminal"
+    },
+    {
+      "name": "Python: Optimized RPLA (demo harness)",
+      "type": "debugpy",
+      "request": "launch",
+      "program": "${workspaceFolder}/python/optimized_rpla_calculation.py",
+      "cwd": "${workspaceFolder}/python",
+      "console": "integratedTerminal",
+      "args": []
+    }
+  ]
+}
