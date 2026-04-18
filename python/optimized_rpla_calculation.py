@@ -158,8 +158,10 @@ class OptimizedRPLACalculation(CostCalculation):
             self.showProducts()
             print("==========================================================")
         
-        # Initialize P_QG (garbage products), ndot counter, and template counters
-        p_qg = set()
+        # P_QG: garbage cubes as canonical minterm strings (e.g. '10-', '1-1')
+        p_qg: set[str] = set()
+        # Products whose cube matched P_QG (already generated): skip further AND ops for them
+        skipped_generated_product_idx: set[int] = set()
         ndot = 0
         template_counts = {
             'α': 0, 'β': 0, 'γ': 0, 'π': 0,
@@ -173,35 +175,51 @@ class OptimizedRPLACalculation(CostCalculation):
                 
                 # Count products containing both literals I_g and I_h
                 for i in range(len(self.products)):
+                    if i in skipped_generated_product_idx:
+                        continue
                     if self._product_contains_literals(i, [g, h]):
                         swap_flag += 1
                 
                 if swap_flag > 0:
                     # Process products with size > 1
                     for i in range(len(self.products)):
+                        
                         if self.products[i].getSize() > 1:
-                            if i in p_qg:
-                                p_qg.remove(i)
-                            else:
-                                if self._product_contains_literals(i, [g, h]):
-                                    swap_flag -= 1
+                            bp_i = self._canonical_bit_pattern(self.products[i].bitPattern)
+                            if i in skipped_generated_product_idx:
+                                continue
+                            if bp_i in p_qg:
+                            # p_qg.remove(bp_i)
+                                skipped_generated_product_idx.add(i)    # add to skipped_generated_product_idx to skip further operations for this product
+                                continue
+
+                            if self._p_qg_contains_prefix_of_bp(p_qg, bp_i):
+                                if self._product_contains_literal(i, h):
+                                    gq = self._p_qg_find_matching_prefix_cube(p_qg, bp_i)
+                                    if gq is not None:
+                                        lj = self._signed_literal_from_product(i, h)
+                                        pivot_p, template = self._op_and_garbage(gq, lj, swap_flag)
+                                        template_counts[template] += 1
+                                        if pivot_p is not None:
+                                            p_qg.add(self._canonical_bit_pattern(pivot_p))
+                                continue
+                            if self._product_contains_literals(i, [g, h]):
+                                swap_flag -= 1
                                 la = self._signed_literal_from_product(i, g)
                                 lb = self._signed_literal_from_product(i, h)
                                 pivot_p, template = self._op_and(la, lb, swap_flag)
                                 template_counts[template] += 1
 
-                                if self.products[i].getSize() > 2:
-                                    p_g = None
-                                    for j in range(h + 1, self._opt_total_literals):
-                                        if self._product_contains_literal(i, j):
-                                            p_g = pivot_p
-                                            lj = self._signed_literal_from_product(i, j)
-                                            pivot_p, template = self._op_and(
-                                                pivot_p, lj, False
-                                            )
-                                            template_counts[template] += 1
-                                    if p_g is not None:
-                                        p_qg.add(p_g)
+                                if pivot_p is not None:
+                                    p_qg.add(self._canonical_bit_pattern(pivot_p))
+                            # if self.products[i].getSize() > 2:
+                            #     p_g = None
+                            #     for j in range(h + 1, self._opt_total_literals):
+                            #         if self._product_contains_literal(i, j):
+                            #             p_g = pivot_p
+                            #             lj = self._signed_literal_from_product(i, j)
+                            #             pivot_p, template = self._op_and(pivot_p, lj, False)
+                            #             template_counts[template] += 1
                         else:
                             # Algorithm 4 line 29: SizeOf(P_i) <= 1 → ndot (•)
                             ndot += 1
@@ -293,12 +311,75 @@ class OptimizedRPLACalculation(CostCalculation):
         return (literal < len(product.bitPattern) and 
                 product.bitPattern[literal] in ('0', '1'))
 
+    def _canonical_bit_pattern(self, pat: str) -> str:
+        """Normalize cube to length totalLiterals with '-' padding (for P_QG keys)."""
+        n = self._opt_total_literals
+        if not pat:
+            return "-" * n
+        if len(pat) >= n:
+            return pat[:n]
+        return pat + "-" * (n - len(pat))
+
+    def _p_qg_find_matching_prefix_cube(self, q: set[str], p_bp: str) -> str | None:
+        """
+        Return one cube ``g`` from ``q`` that matches the start of canonical ``p_bp``,
+        or None. Same rule as ``_p_qg_contains_prefix_of_bp``: leading ``-`` in ``g``
+        ignored; cares in ``g`` must agree with ``p_bp``; ``-`` in ``g`` is wildcard.
+        """
+        p_c = self._canonical_bit_pattern(p_bp)
+        for g in q:
+            s = g.lstrip("-")
+            if not s:
+                continue
+            ok = True
+            for i, ch in enumerate(s):
+                if i >= len(p_c):
+                    ok = False
+                    break
+                if ch in ("0", "1") and ch != p_c[i]:
+                    ok = False
+                    break
+            if ok:
+                return g
+        return None
+
+    def _p_qg_contains_prefix_of_bp(self, q: set[str], p_bp: str) -> bool:
+        """True iff ``_p_qg_find_matching_prefix_cube`` finds a matching cube in ``q``."""
+        return self._p_qg_find_matching_prefix_cube(q, p_bp) is not None
+
+    def _signed_pair_to_minterm(self, lit_a: int, lit_b: int) -> str | None:
+        """
+        AND of two signed literals as one PLA cube row (minterm form), length n.
+        +k / -k use 1-based k = column index + 1.
+        Returns None if contradiction (e.g. x ∧ ¬x on same line).
+        """
+        n = self._opt_total_literals
+        if lit_a == 0 or lit_b == 0:
+            return None
+        if abs(lit_a) == abs(lit_b):
+            if lit_a != lit_b:
+                return None
+            idx = abs(lit_a) - 1
+            row = ["-"] * n
+            row[idx] = "1" if lit_a > 0 else "0"
+            return "".join(row)
+        row = ["-"] * n
+        for lit in (lit_a, lit_b):
+            idx = abs(lit) - 1
+            if idx < 0 or idx >= n:
+                return None
+            ch = "1" if lit > 0 else "0"
+            if row[idx] != "-" and row[idx] != ch:
+                return None
+            row[idx] = ch
+        return "".join(row)
+
     def _signed_literal_from_product(self, product_idx: int, column_idx: int) -> int:
         """
         Map cube column `column_idx` in product `product_idx` to OpAND literal form:
         +k  = uncomplemented variable on line k
         -k  = complemented variable on line k
-        where k = column_idx + 1 (1-based line id, matches abs() in _apply_template_and).
+        where k = column_idx + 1 (1-based line id).
 
         Cube encoding: '1' → positive literal, '0' → negative literal (see ESOP PLA convention).
         """
@@ -313,77 +394,60 @@ class OptimizedRPLACalculation(CostCalculation):
             return -k
         return 0
 
-    def _op_and(self, lit_a: int, lit_b: int, swap_flag: int) -> tuple:
+    def _op_and(self, lit_a: int, lit_b: int, swap_flag: int) -> tuple[str | None, str]:
         """
         Algorithm 1: OpAND(p, q, swapFlag)
-        Return result of AND operation and the template used.
-
-        Templates {α, β, γ, π} and their complements {α', β', γ', π'} are used
-        based on the complement status of literals p and q.
+        Returns (pivot_minterm, template) where pivot_minterm is a PLA cube string
+        (length totalLiterals, e.g. '10-', '1-1', '001') or None on contradiction.
 
         Args lit_a, lit_b: signed 1-based line ids from the current product cube
-        (_signed_literal_from_product) or intermediate results from _apply_template_and:
-        positive = uncomplemented, negative = complemented.
-        swap_flag selects the primed vs unprimed template family.
+        (_signed_literal_from_product). Positive = uncomplemented, negative = complemented.
         """
         is_p_complemented = lit_a < 0
         is_q_complemented = lit_b < 0
 
-        # Apply Algorithm 1 logic to select template
         if is_p_complemented:
             if is_q_complemented:
-                # Both complemented
-                template = 'π_prime' if swap_flag == 0 else 'π'
+                template = "π_prime" if swap_flag == 0 else "π"
             else:
-                # p complemented, q not complemented
-                template = 'β_prime' if swap_flag == 0 else 'β'
+                template = "β_prime" if swap_flag == 0 else "β"
         else:
             if is_q_complemented:
-                # p not complemented, q complemented
-                template = 'α_prime' if swap_flag == 0 else 'α'
+                template = "α_prime" if swap_flag == 0 else "α"
             else:
-                # Neither complemented
-                template = 'γ_prime' if swap_flag == 0 else 'γ'
+                template = "γ_prime" if swap_flag == 0 else "γ"
 
-        # Apply the selected template operation
-        # Since the actual template operations aren't specified in detail,
-        # we implement a basic AND operation that considers complementation
-        result = self._apply_template_and(lit_a, lit_b, template)
+        minterm = self._signed_pair_to_minterm(lit_a, lit_b)
+        return minterm, template
 
-        return result, template
-
-    def _apply_template_and(self, lit_a: int, lit_b: int, template: str) -> int:
+    def _op_and_garbage(
+        self, garbage_minterm: str, lit_b: int, swap_flag: int
+    ) -> tuple[str | None, str]:
         """
-        Apply the selected template for AND operation.
-        Since templates {α, β, γ, π} and their complements aren't fully specified,
-        we implement based on logical AND semantics in RPLA context.
-        """
-        # Get absolute values for comparison
-        abs_a = abs(lit_a)
-        abs_b = abs(lit_b)
+        AND a garbage PLA cube (``garbage_minterm``) with one signed literal ``lit_b``,
+        as in Algorithm 4 (``OpAND(pivotP, I_j, swapFlag)``) when ``pivotP`` is a cube.
 
-        # Basic AND logic: if same variable, result depends on complementation
-        if abs_a == abs_b:
-            # Same variable: AND of x and x = x, AND of x and ~x = 0 (impossible)
-            # AND of ~x and ~x = ~x
-            if lit_a == lit_b:
-                # Both same sign: x ∧ x = x, ~x ∧ ~x = ~x
-                return lit_a
-            else:
-                # Different signs: x ∧ ~x = 0 (contradiction)
-                # In RPLA, this might indicate an invalid combination
-                return 0  # Representing contradiction
+        The template follows Algorithm 1 with the cube treated as the non-complemented
+        left operand, so classification depends only on whether ``lit_b`` is complemented
+        (α / α′) or positive (γ / γ′), selected by ``swap_flag``.
+        """
+        if lit_b == 0:
+            return None, "γ_prime"
+
+        if lit_b < 0:
+            template = "α_prime" if swap_flag == 0 else "α"
         else:
-            # Different variables: standard AND operation
-            # For different variables, the result depends on the template
-            if template in ['α', 'α_prime', 'β', 'β_prime']:
-                # These templates might handle specific ordering
-                if template in ['α', 'β']:
-                    # Prefer certain ordering
-                    return min(abs_a, abs_b) if lit_a > 0 and lit_b > 0 else -max(abs_a, abs_b)
-                else:  # α', β'
-                    return max(abs_a, abs_b) if lit_a < 0 and lit_b < 0 else -min(abs_a, abs_b)
-            else:  # γ, γ', π, π'
-                # Standard AND: combine literals
-                # For simplicity, return the first literal (this would need refinement)
-                return lit_a
+            template = "γ_prime" if swap_flag == 0 else "γ"
+
+        n = self._opt_total_literals
+        row = list(self._canonical_bit_pattern(garbage_minterm))
+        idx = abs(lit_b) - 1
+        if idx < 0 or idx >= n:
+            return None, template
+
+        want = "1" if lit_b > 0 else "0"
+        cur = row[idx]
+        if cur in ("0", "1") and cur != want:
+            return None, template
+        row[idx] = want
+        return "".join(row), template
