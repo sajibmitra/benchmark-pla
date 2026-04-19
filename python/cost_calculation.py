@@ -64,9 +64,16 @@ class CostCalculation:
                 if j == tempFunction.getSize() - 1 and flag == 1:
                     count -= 1
                 self.products[prod_index].delayCountXOR = count
-        self.gates = totalXOROperation + len(self.functions) - self.xorTDOT
-        self.garbages = len(self.products) - self.xorTDOT
-        self.quantumCost = self.gates
+
+        total_gates = totalXOROperation + len(self.functions) - self.xorTDOT
+        total_garbages = len(self.products) - self.xorTDOT
+        total_quantum_cost = total_gates
+        total_ancilla_input_count = len(self.functions) + total_garbages - len(self.products)
+        self.quantumCost += total_quantum_cost
+        self.gates += total_gates
+        self.garbages += total_garbages
+        self.ancilla_input_count += total_ancilla_input_count
+
         if not self.quiet:
             print("==========================================================")
             print(f"                {plane_banner}")
@@ -81,8 +88,10 @@ class CostCalculation:
             print("==========================================================")
             print(f"Total EXOR Operations : {totalXOROperation}")
             print(f"TDOT                  : {self.xorTDOT}")
-            print(f"Feynman Gate          : {self.gates}")
-            print(f"Garbage, GB           : {self.garbages}")
+            print(f"Feynman Gate          : {total_gates}")
+            print(f"Garbage, GB           : {total_garbages}")
+            print(f"Ancilla, AI           : {total_ancilla_input_count}")
+            print(f"Quantum Cost          : {total_quantum_cost}")
             print("==========================================================")
 
     def andPlane(self):
@@ -124,13 +133,17 @@ class CostCalculation:
         else:
             totalXOROperation = len(self.products) - andTDOT
         totalGarbages = totalANDOperation + len(self.literals) - andTDOT
-        self.quantumCost += totalANDOperation * 4 + totalXOROperation
+        total_ancilla_input_count = len(self.products) + totalGarbages  - len(self.literals)
+        total_quantum_cost =  totalANDOperation * 4 + totalXOROperation
+        total_gates = totalANDOperation + totalXOROperation
+
+        self.quantumCost += total_quantum_cost
         self.delay = 0
         for j in range(len(self.products)):
             self.delay = max(self.delay, self.products[j].delayCountAND + self.products[j].delayCountXOR)
-        self.gates += totalANDOperation + totalXOROperation
+        self.gates += total_gates
         self.garbages += totalGarbages
-        self.ancilla_input_count = len(self.literals) - andTDOT
+        self.ancilla_input_count = total_ancilla_input_count
         if not self.quiet:
             print("==========================================================")
             print("             Calculation of AND Plane")
@@ -139,12 +152,13 @@ class CostCalculation:
             print(f"TDOT                : {andTDOT}")
             print(f"Total MUX Gates (MG): {totalANDOperation}")
             print(f"Total Feynman Gate  : {totalXOROperation}")
+            print("==========================================================")
+            print(f"Total Gates, GT     : {total_gates}")
             print(f"Garbage, GB         : {totalGarbages}")
-            print("==========================================================")
-            print("                  Delay ")
-            print("==========================================================")
-            print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
-            print("==========================================================")
+            print(f"Ancilla, AI         : {total_ancilla_input_count}")
+            print(f"Quantum Cost        : {total_quantum_cost}")
+            print("==================        END       =====================")
+           
 
     def initializeLiteral(self):
         self.literals = []
@@ -181,7 +195,7 @@ class CostCalculation:
     def showProducts(self):
         print("----------------------------------------------------------")
         for product in self.products:
-            line = f"Product [{product.id}]: "
+            line = f"Product [{product.id}]: {product.bitPattern}  --"
             line += ",".join(f"f{j}({pos})" for j, pos in enumerate(product.functions) if pos >= 0)
             print(line)
         print("----------------------------------------------------------")

@@ -82,12 +82,15 @@ class OptimizedRPLACalculation(CostCalculation):
         EX-OR plane generates final outputs from products.
         Note: Products should already be ordered by andPlane (Algorithm 4).
         """
-        # ordering_products_alg3() is called in andPlane (Algorithm 4)
         
         # Initialize F_Q (set of processed functions) and xdot counter
         f_q = set()
         xdot = 0
-        
+        # Algorithm 5 template counts (excluding • / xdot)
+        count_nabla = 0   # ∇ — keep a copy of P_i
+        count_lambda = 0  # λ — XOR P_i onto function line
+        count_triangle = 0  # △ — keep complemented copy of P_i
+
         # Process each product
         for i in range(len(self.products)):
             product = self.products[i]
@@ -103,23 +106,35 @@ class OptimizedRPLACalculation(CostCalculation):
                             xdot += 1
                         else:
                             # Use ∇ (keep copy)
+                            count_nabla += 1
                             self._keep_product_copy(i)
                             self._decrement_product_frequency(i)
                         f_q.add(j)
                     else:
                         # Function already processed, use XOR (λ)
+                        count_lambda += 1
                         self._xor_product_to_function(i, j)
+                        self._decrement_product_frequency(i)
                 elif self._is_complemented_product_in_function(i, j):
                     # Use △ (keep complemented copy)
+                    count_triangle += 1
                     self._keep_complemented_product_copy(i)
+                    self._decrement_product_frequency(i)
         
         # Update statistics
         self.xorTDOT = xdot
         total_xor_operations = sum(f.getSize() - 1 for f in self.functions)
-        self.gates = total_xor_operations + len(self.functions) - xdot
-        self.garbages = len(self.products) - xdot
-        self.quantumCost = self.gates
+        total_fg_gates = total_xor_operations + len(self.functions) - xdot
+        total_garbages = len(self.products) - xdot
+        # total_ancilla_input_count= total_garbages + len(self.functions) - len(self.products)
+        total_ancilla_input_count= count_nabla + count_triangle
+        total_quantum_cost = total_fg_gates
         
+        self.quantumCost += total_quantum_cost
+        self.gates += total_fg_gates
+        self.garbages+=total_garbages
+        self.ancilla_input_count+=total_ancilla_input_count
+
         # Print results
         if not self.quiet:
             print("==========================================================")
@@ -127,39 +142,30 @@ class OptimizedRPLACalculation(CostCalculation):
             print("==========================================================")
             print(f"Total EXOR Operations : {total_xor_operations}")
             print(f"TDOT                  : {self.xorTDOT}")
-            print(f"Feynman Gate          : {self.gates}")
-            print(f"Garbage, GB           : {self.garbages}")
+            print(
+                "Algorithm 5 templates  "
+                f"∇ (COPY): {count_nabla}   "
+                f"λ (XOR): {count_lambda}   "
+                f"△ (NOT): {count_triangle}"
+            )
+            print(f"Feynman Gate          : {total_fg_gates}")
+            print(f"Garbage, GB           : {total_garbages}")
+            print(f"Ancilla, AI           : {total_ancilla_input_count}")
+            print(f"Quantum Cost          : {total_quantum_cost}")
             print("==========================================================")
 
-    def andPlane(self, plane_banner="Optimized RPLA"):
+    def andPlane(self, plane_banner="Proposed Optimized RPLA"):
         """
         Algorithm 4: ConstructANDPlane(Iv, Pv)
         Build AND plane using UMG and UNG gates with literal reordering.
         """
 
-        # if not self.quiet:
-        #     print("==========================================================")
-        #     print(f"                {plane_banner}")
-        #     print("==========================================================")
-        #     print("                Before Ordering Products ")
-        #     self.showFunctions()
-        #     print("----------------------------------------------------------")
-        #     self.showProducts()
-        #     print("==========================================================")
-            
         # Call Algorithm 3: OrderingProducts as specified in Algorithm 4
         self.ordering_products_alg3()
         
-        if not self.quiet:
-            print("==========================================================")
-            print("                After Ordering Products ")
-            # self.showFunctions()
-            # print("----------------------------------------------------------")
-            self.showProducts()
-            print("==========================================================")
-        
-        # P_QG: garbage cubes as canonical minterm strings (e.g. '10-', '1-1')
-        p_qg: set[str] = set()
+        # P_QG: garbage cubes (canonical minterm keys) → how often each prefix was used
+        # in the prefix-match / _op_and_garbage branch (new pivots are inserted with setdefault).
+        p_qg: dict[str, int] = {}
         # Products whose cube matched P_QG (already generated): skip further AND ops for them
         skipped_generated_product_idx: set[int] = set()
         ndot = 0
@@ -183,7 +189,6 @@ class OptimizedRPLACalculation(CostCalculation):
                 if swap_flag > 0:
                     # Process products with size > 1
                     for i in range(len(self.products)):
-                        
                         if self.products[i].getSize() > 1:
                             bp_i = self._canonical_bit_pattern(self.products[i].bitPattern)
                             if i in skipped_generated_product_idx:
@@ -197,11 +202,16 @@ class OptimizedRPLACalculation(CostCalculation):
                                 if self._product_contains_literal(i, h):
                                     gq = self._p_qg_find_matching_prefix_cube(p_qg, bp_i)
                                     if gq is not None:
-                                        lj = self._signed_literal_from_product(i, h)
-                                        pivot_p, template = self._op_and_garbage(gq, lj, swap_flag)
-                                        template_counts[template] += 1
-                                        if pivot_p is not None:
-                                            p_qg.add(self._canonical_bit_pattern(pivot_p))
+                                        if len(gq.rstrip("-"))-1 < h:
+                                            lj = self._signed_literal_from_product(i, h)
+                                            pivot_p, template = self._op_and_garbage(gq, lj, swap_flag)
+                                            template_counts[template] += 1
+                                            # print(f"PREFIX-ANDING-Templates: {template}-({template_counts[template]}) - g:{gq} -- pvort: {pivot_p} ---P:{bp_i}")
+                                            p_qg[gq] += 1
+                                            if pivot_p is not None:
+                                                p_qg.setdefault(
+                                                    self._canonical_bit_pattern(pivot_p), 0
+                                                )
                                 continue
                             if self._product_contains_literals(i, [g, h]):
                                 swap_flag -= 1
@@ -209,9 +219,11 @@ class OptimizedRPLACalculation(CostCalculation):
                                 lb = self._signed_literal_from_product(i, h)
                                 pivot_p, template = self._op_and(la, lb, swap_flag)
                                 template_counts[template] += 1
-
+                                # print(f"LIT-ANDING-Templates: {template}-({template_counts[template]}) - g:{la},{lb} -- pvort: {pivot_p} ---P:{self.products[i].bitPattern}")
                                 if pivot_p is not None:
-                                    p_qg.add(self._canonical_bit_pattern(pivot_p))
+                                    p_qg.setdefault(
+                                        self._canonical_bit_pattern(pivot_p), 0
+                                    )
                             # if self.products[i].getSize() > 2:
                             #     p_g = None
                             #     for j in range(h + 1, self._opt_total_literals):
@@ -220,20 +232,34 @@ class OptimizedRPLACalculation(CostCalculation):
                             #             lj = self._signed_literal_from_product(i, j)
                             #             pivot_p, template = self._op_and(pivot_p, lj, False)
                             #             template_counts[template] += 1
-                        else:
-                            # Algorithm 4 line 29: SizeOf(P_i) <= 1 → ndot (•)
-                            ndot += 1
+                        if self.products[i].getSize() == 1:
+                            if self._product_contains_literal(i, h):
+                                if i in skipped_generated_product_idx:
+                                    continue
+                                else:
+                                    skipped_generated_product_idx.add(i)
+                                    ndot += 1
                 # else:
                 #     # Algorithm 4 line 32: no product contains both I_g and I_h
                 #     self.swap_literals_alg2(g, h)
         # Calculate AND plane statistics
-        and_tdot = ndot
         total_and_operations = sum(p.getSize() - 1 for p in self.products if p.getSize() > 1)
-        total_gates = sum(template_counts.values())
-        total_garbages = total_gates + self._opt_total_literals - and_tdot 
-        total_ancilla_input_count = total_gates
+        and_tdot = ndot
+        total_skipped_and_operations_due_to_p_qg = sum(
+            v for v in p_qg.values() if v >= 2
+        )
+        total_gates = sum(template_counts.values()) - total_skipped_and_operations_due_to_p_qg
+        total_quantum_cost = total_gates * 5
+        # each gates has 1 ancilla 
+        total_ancilla_input_count = total_gates 
+        total_garbages = (
+            total_ancilla_input_count
+            + self._opt_total_literals
+            - and_tdot
+            - len(self.products)
+        )
         # Update quantum cost and other metrics (no XOR operations in AND plane)
-        self.quantumCost += total_and_operations * 5
+        self.quantumCost += total_quantum_cost
         # For Optimized RPLA: Total number of Gates = Total number of Templates
         self.gates += total_gates
         self.garbages += total_garbages
@@ -247,27 +273,22 @@ class OptimizedRPLACalculation(CostCalculation):
         # Print results
         if not self.quiet:
             print("==========================================================")
-            print("               Rearranged PRODUCTS ")
+            print(f"                {plane_banner}")
+            print("==========================================================")
+            print("==========================================================")
+            print("               Dynamically Ordered PRODUCTS ")
             self.showProducts()
             print("==========================================================")
             print(f"Total AND Operations: {total_and_operations}")
             print(f"TDOT                : {and_tdot}")
-            print("Templates {α, β, γ, π} and {α′, β′, γ′, π′}")
-            print(f"Templates α  : {template_counts['α']}")
-            print(f"Templates β  : {template_counts['β']}")
-            print(f"Templates γ  : {template_counts['γ']}")
-            print(f"Templates π  : {template_counts['π']}")
-            print(f"Templates α′ : {template_counts['α_prime']}")
-            print(f"Templates β′ : {template_counts['β_prime']}")
-            print(f"Templates γ′ : {template_counts['γ_prime']}")
-            print(f"Templates π′ : {template_counts['π_prime']}")
+            # print(f"P_QG: {p_qg}")
+            # print(f"Total Skipped AND Operations Due to P_QG: {total_skipped_and_operations_due_to_p_qg}")
+            # print(f"P_Generated : {skipped_generated_product_idx}")
+            print(f"Templates [α-{template_counts['α']}, β-{template_counts['β']}, γ-{template_counts['γ']}, π-{template_counts['π']}] and [α′-{template_counts['α_prime']}, β′-{template_counts['β_prime']}, γ′-{template_counts['γ_prime']}, π′-{template_counts['π_prime']}]")
             print(f"Total Gates, GT     : {total_gates}")
-            print(f"Garbage, GB         : {total_garbages} [will be reduced]")
+            print(f"Garbage, GB         : {total_garbages}")
             print(f"Ancilla, AI         : {total_ancilla_input_count}")
-            print("==========================================================")
-            print("                  Delay ")
-            print("==========================================================")
-            print("    Delay (AND) |  Delay (EXOR)   = Total Delay")
+            print(f"Quantum Cost        : {total_quantum_cost}")
             print("==========================================================")
 
     def _get_product_frequency(self, product_idx: int) -> int:
@@ -323,16 +344,21 @@ class OptimizedRPLACalculation(CostCalculation):
             return pat[:n]
         return pat + "-" * (n - len(pat))
 
-    def _p_qg_find_matching_prefix_cube(self, q: set[str], p_bp: str) -> str | None:
+    def _p_qg_find_matching_prefix_cube(self, q: dict[str, int], p_bp: str) -> str | None:
         """
-        Return one cube ``g`` from ``q`` that matches the start of canonical ``p_bp``,
-        or None. Same rule as ``_p_qg_contains_prefix_of_bp``: leading ``-`` in ``g``
-        ignored; cares in ``g`` must agree with ``p_bp``; ``-`` in ``g`` is wildcard.
+        Return a cube key ``g`` from ``q`` that matches the start of canonical ``p_bp``,
+        choosing among all matches the one whose stripped form ``s = g.rstrip('-')`` has
+        maximum ``len(s)``; or None if no match.
+
+        Cares in ``g`` must agree with ``p_bp``; ``-`` in ``g`` is wildcard. Only keys with
+        ``2 <= len(s) < len(p_c)`` are considered, where ``p_c`` canonicalizes ``p_bp``.
         """
         p_c = self._canonical_bit_pattern(p_bp)
+        best: str | None = None
+        best_len = -1
         for g in q:
-            s = g.lstrip("-")
-            if not s:
+            s = g.rstrip("-")
+            if len(s) < 2 or len(s) >= len(p_c):
                 continue
             ok = True
             for i, ch in enumerate(s):
@@ -342,11 +368,12 @@ class OptimizedRPLACalculation(CostCalculation):
                 if ch in ("0", "1") and ch != p_c[i]:
                     ok = False
                     break
-            if ok:
-                return g
-        return None
+            if ok and len(s) > best_len:
+                best_len = len(s)
+                best = g
+        return best
 
-    def _p_qg_contains_prefix_of_bp(self, q: set[str], p_bp: str) -> bool:
+    def _p_qg_contains_prefix_of_bp(self, q: dict[str, int], p_bp: str) -> bool:
         """True iff ``_p_qg_find_matching_prefix_cube`` finds a matching cube in ``q``."""
         return self._p_qg_find_matching_prefix_cube(q, p_bp) is not None
 

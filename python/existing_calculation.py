@@ -140,8 +140,6 @@ class ExistingCalculation:
             print(f"Total Feynman Gates : {totalXOROperation}")
             print(f"Garbage, GB         : {totalGarbages}\n")
             print("==========================================================")
-            print("                  Delay ")
-            print("==========================================================")
 
     def showFinalResult(self, opt_calc=None):
         print("==========================================================")
