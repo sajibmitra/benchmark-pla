@@ -228,15 +228,16 @@ class OptimizedRPLACalculation(CostCalculation):
                 #     self.swap_literals_alg2(g, h)
         # Calculate AND plane statistics
         and_tdot = ndot
-        total_and_operations = sum(p.getSize() - 1 for p in self.products if p.getSize() > 0)
-        total_garbages = total_and_operations + self._opt_total_literals - and_tdot
-        
+        total_and_operations = sum(p.getSize() - 1 for p in self.products if p.getSize() > 1)
+        total_gates = sum(template_counts.values())
+        total_garbages = total_gates + self._opt_total_literals - and_tdot 
+        total_ancilla_input_count = total_gates
         # Update quantum cost and other metrics (no XOR operations in AND plane)
-        self.quantumCost += total_and_operations * 4
+        self.quantumCost += total_and_operations * 5
         # For Optimized RPLA: Total number of Gates = Total number of Templates
-        self.gates = sum(template_counts.values())
+        self.gates += total_gates
         self.garbages += total_garbages
-        self.ancilla_input_count = self._opt_total_literals - and_tdot
+        self.ancilla_input_count += total_ancilla_input_count
         
         # Calculate delay (AND plane only)
         self.delay = 0
@@ -252,15 +253,17 @@ class OptimizedRPLACalculation(CostCalculation):
             print(f"Total AND Operations: {total_and_operations}")
             print(f"TDOT                : {and_tdot}")
             print("Templates {α, β, γ, π} and {α′, β′, γ′, π′}")
-            print(f"Total Templates α  : {template_counts['α']}")
-            print(f"Total Templates β  : {template_counts['β']}")
-            print(f"Total Templates γ  : {template_counts['γ']}")
-            print(f"Total Templates π  : {template_counts['π']}")
-            print(f"Total Templates α′ : {template_counts['α_prime']}")
-            print(f"Total Templates β′ : {template_counts['β_prime']}")
-            print(f"Total Templates γ′ : {template_counts['γ_prime']}")
-            print(f"Total Templates π′ : {template_counts['π_prime']}")
-            print(f"Garbage, GB         : {total_garbages}")
+            print(f"Templates α  : {template_counts['α']}")
+            print(f"Templates β  : {template_counts['β']}")
+            print(f"Templates γ  : {template_counts['γ']}")
+            print(f"Templates π  : {template_counts['π']}")
+            print(f"Templates α′ : {template_counts['α_prime']}")
+            print(f"Templates β′ : {template_counts['β_prime']}")
+            print(f"Templates γ′ : {template_counts['γ_prime']}")
+            print(f"Templates π′ : {template_counts['π_prime']}")
+            print(f"Total Gates, GT     : {total_gates}")
+            print(f"Garbage, GB         : {total_garbages} [will be reduced]")
+            print(f"Ancilla, AI         : {total_ancilla_input_count}")
             print("==========================================================")
             print("                  Delay ")
             print("==========================================================")
