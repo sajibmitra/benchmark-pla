@@ -215,15 +215,45 @@ class ExistingCalculation:
 
 
 def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc):
-    """Final summary for benchmark flows: [Mitra2012] vs [Optimized(template-driven)] only."""
+    """Final summary for benchmark flows: Mitra2012 vs Optimized (template-driven) as a table."""
     print("==========================================================")
     print(f"           Final Calculation (Mitra2012)[Optimized RPLA] of {rpla.esopFileName}")
     print("==========================================================")
-    print(f"Total Gates   : {cost_calc.gates}[{opt_calc.gates}]")
-    print(f"Total Garbages: {cost_calc.garbages}[{opt_calc.garbages}]")
+    w_alg = 34
+    w_g = 8
+    w_gb = 10
+    w_ai = 24
+    w_q = 14
+    sep = w_alg + w_g + w_gb + w_ai + w_q
+
+    def left(label: str, width: int) -> str:
+        return f"{label:<{width}}"
+
+    def hnum(label: str, width: int) -> str:
+        return f"{label:>{width}}"
+
+    def num(val: int, width: int) -> str:
+        return f"{val:>{width}}"
+
     print(
-        "Count of Ancilla Input : "
-        f"{cost_calc.ancilla_input_count}[{opt_calc.ancilla_input_count}]"
+        left("Algorithm", w_alg)
+        + hnum("Gates", w_g)
+        + hnum("Garbages", w_gb)
+        + hnum("Count of Ancilla Input", w_ai)
+        + hnum("Quantum Cost", w_q)
     )
-    print(f"Total Q. Cost : {cost_calc.quantumCost}[{opt_calc.quantumCost}]")
-    print("  [Mitra2012][Optimized(template-driven)]")
+    print("-" * sep)
+    print(
+        left("Mitra2012", w_alg)
+        + num(cost_calc.gates, w_g)
+        + num(cost_calc.garbages, w_gb)
+        + num(cost_calc.ancilla_input_count, w_ai)
+        + num(cost_calc.quantumCost, w_q)
+    )
+    print(
+        left("Optimized (template-driven)", w_alg)
+        + num(opt_calc.gates, w_g)
+        + num(opt_calc.garbages, w_gb)
+        + num(opt_calc.ancilla_input_count, w_ai)
+        + num(opt_calc.quantumCost, w_q)
+    )
