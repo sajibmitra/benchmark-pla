@@ -1,8 +1,8 @@
-# Benchmarks and cost comparison (MITVerse)[Web Version]
+# Benchmarks and cost comparison (web)
 
 The **[MITVerse EDA benchmarks](https://eda.mitverse.com/benchmarks)** site hosts runnable flows where you can **try circuits and compare** the **Mitra2012** cost model with the **Proposed** (template-driven) optimized RPLA implementation in this repo (`python/optimized_rpla_calculation.py`). Use that site to explore benchmark results side-by-side with the metrics produced locally by this project.
 
-# Local-Installation
+# How to install and test (local)
 
 Tools for working with **ESOP / PLA** representations of logic circuits, including **MCNC** and **classic** benchmarks in BLIF and ESOP form. BLIF processing in the optional conversion scripts relies on [**Berkeley ABC**](https://github.com/berkeley-abc/abc).
 
