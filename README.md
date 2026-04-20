@@ -1,6 +1,24 @@
 # benchmark-pla
 
-Tools for working with **ESOP / PLA** representations of logic circuits, including **MCNC**, **EPFL**, and **classic** benchmarks in BLIF and ESOP form. BLIF processing relies on [**Berkeley ABC**](https://github.com/berkeley-abc/abc).
+Tools for working with **ESOP / PLA** representations of logic circuits, including **MCNC** and **classic** benchmarks in BLIF and ESOP form. BLIF processing in the optional conversion scripts relies on [**Berkeley ABC**](https://github.com/berkeley-abc/abc).
+
+## Quick start
+
+1. **Clone** this repository and `cd` into the repo root.
+2. **Download benchmarks** (Google Drive folder into `benchmarks/`):
+
+   ```bash
+   chmod +x download_data.sh   # once, if needed
+   ./download_data.sh
+   ```
+
+3. **(Optional)** For BLIF→ESOP batch scripts, build [Berkeley ABC](https://github.com/berkeley-abc/abc) and set `export ABC_BIN=/path/to/abc` (see [Configure ABC](#configure-abc)).
+4. **Run the tool** from `python/` (see [Run the main Python tool](#run-the-main-python-tool-interactive-rpla)):
+
+   ```bash
+   cd python
+   python3 rpla.py
+   ```
 
 ## Prerequisites
 
@@ -13,24 +31,31 @@ Optional:
 - **`ABC_GIA_EXORCISM_TIMEOUT`**: for very large circuits, seconds for ABC’s GIA `&exorcism` step (e.g. `export ABC_GIA_EXORCISM_TIMEOUT=3600`). See `third_party/README.md`.
 - **Java**: only if you use the Java implementation under `javacode/`.
 
-## Download the benchmarks
+## Download the benchmarks (script)
 
-From the repository root:
+The repo root script **`download_data.sh`** pulls the shared benchmark bundle from Google Drive into **`benchmarks/`** using [gdown](https://github.com/wkentaro/gdown) (folder mode).
+
+From the **repository root**:
 
 ```bash
 chmod +x download_data.sh   # once, if needed
 ./download_data.sh
 ```
 
-This downloads into `benchmarks/` from the shared Drive folder. The typical tree is:
+What it does:
 
-- `benchmarks/epfl/` — EPFL combinational benchmarks (BLIF, etc.)
+- Creates `benchmarks/` if missing.
+- Installs **`gdown`** with `pip install gdown` if the command is not on your `PATH`.
+- Runs `gdown --folder` on the Drive folder configured in the script and writes under `benchmarks/`.
+
+After a successful run you should see a layout similar to:
+
 - `benchmarks/mcnc/` — MCNC (`Combinational/`, `Sequential/`, …)
-- `benchmarks/classic/classic/` — small classic ESOP PLAs
+- `benchmarks/classic/classic/` — small classic ESOP PLAs (paths may match the Drive layout exactly)
 
-Older layouts used `benchmarks/eda/{epfl,mcnc,classic/...}`; Python tools fall back there if the new paths are missing. The `benchmarks/` directory is gitignored.
+Older layouts used `benchmarks/eda/{mcnc,classic/...}`; Python resolution falls back there if the new paths are missing. The `benchmarks/` directory is **gitignored** (not part of the clone).
 
-If `gdown` is not installed, the script runs `pip install gdown` for the current environment.
+If download fails, check Google Drive access, `gdown` version, and that you run the script from the repo root so `-O benchmarks/` is correct.
 
 ## Configure ABC
 
@@ -44,33 +69,41 @@ Build ABC from source: clone [berkeley-abc/abc](https://github.com/berkeley-abc/
 
 ## Run the main Python tool (interactive RPLA)
 
-The menu-driven driver lives in `python/rpla.py`. Run it **from the `python` directory** so local imports resolve:
+The menu-driven driver is **`python/rpla.py`**. Run it **from the `python` directory** so package imports resolve:
 
 ```bash
 cd python
 python3 rpla.py
 ```
 
-Use the prompts to:
+The interactive menu exposes only two choices:
 
-- Compute costs for ESOP PLAs (classic / MCNC / EPFL)
-- Convert expressions or BLIF to PLA / ESOP
-- Batch-convert BLIF under `benchmarks/epfl/` and `benchmarks/mcnc/` (with or without EXORCISM-4 via ABC)
+- **(1)** Calculation of cost of an ESOP PLA (classic)
+- **(9)** Exit
 
-Batch conversion options **(7)** and **(8)** expect EPFL and MCNC roots at `benchmarks/epfl` and `benchmarks/mcnc` (or the legacy `benchmarks/eda/epfl` and `benchmarks/eda/mcnc`) after you run `download_data.sh`.
+**Typical flow (option 1):**
+
+1. Start `python3 rpla.py` and enter **`1`** when prompted.
+2. Enter the path to an `.esop` file (relative to `python/` or absolute), for example after `download_data.sh`:
+
+   - `../benchmarks/classic/classic/example.esop`
+   - or, with the legacy layout: `../benchmarks/eda/classic/classic/example.esop`
+
+The tool reads the PLA header and product lines, runs Mitra2012-style and optimized cost passes, and prints summaries (including a final comparison table when applicable).
 
 ## Batch convert from the repo root (non-interactive)
 
+Optional helper (requires `ABC_BIN` and a downloaded `benchmarks/` tree with MCNC BLIFs):
+
 ```bash
 export ABC_BIN=/path/to/abc
-python3 convert_to_esop.py --source both
+python3 convert_to_esop.py --source mcnc
 ```
 
-Use `--source epfl` or `--source mcnc` to limit the set. Add `--no-exorcism` to skip ABC `&exorcism`. See `python3 convert_to_esop.py --help`.
+Use `--source mcnc` (or see `python3 convert_to_esop.py --help` for other flags such as `--no-exorcism`).
 
-Other root-level helpers (use `benchmarks/` paths via `python/benchmark_paths.py` and `ABC_BIN`):
+Other root-level helpers (paths under `benchmarks/`; set `ABC_BIN` where BLIF is involved):
 
-- `python3 batch_convert_arithmetic_smart.py` — EPFL arithmetic BLIF subset (`benchmarks/epfl/arithmetic/`) with timeouts
 - `python3 verify_esop_accuracy.py` — format checks on `*.esop` under `benchmarks/` (and optional `./eda`; see below)
 
 ## Legacy `eda/` symlink at the project root
