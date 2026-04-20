@@ -69,10 +69,10 @@ class CostCalculation:
         total_garbages = len(self.products) - self.xorTDOT
         total_quantum_cost = total_gates
         total_ancilla_input_count = len(self.functions) + total_garbages - len(self.products)
-        self.quantumCost += total_quantum_cost
-        self.gates += total_gates
-        self.garbages += total_garbages
-        self.ancilla_input_count += total_ancilla_input_count
+        self.quantumCost = total_quantum_cost
+        self.gates = total_gates
+        self.garbages = total_garbages
+        self.ancilla_input_count = total_ancilla_input_count
 
         if not self.quiet:
             print("==========================================================")
@@ -143,7 +143,7 @@ class CostCalculation:
             self.delay = max(self.delay, self.products[j].delayCountAND + self.products[j].delayCountXOR)
         self.gates += total_gates
         self.garbages += totalGarbages
-        self.ancilla_input_count = total_ancilla_input_count
+        self.ancilla_input_count += total_ancilla_input_count
         if not self.quiet:
             print("==========================================================")
             print("             Calculation of AND Plane")
