@@ -1,9 +1,5 @@
 # Third-party reference sources
 
-## Benchmarks and cost comparison (MITVerse)
-
-The **[MITVerse EDA benchmarks](https://eda.mitverse.com/benchmarks)** site hosts runnable flows where you can **try circuits and compare** the **Mitra2012** cost model with the **Proposed** (template-driven) optimized RPLA implementation in this repo (`python/optimized_rpla_calculation.py`). Use that site to explore benchmark results side-by-side with the metrics produced locally by this project.
-
 ## exorcism (EXORCISM-4)
 
 Submodule: [lsils/exorcism](https://github.com/lsils/exorcism) — C++ sources extracted from [Berkeley ABC](https://github.com/berkeley-abc/abc). This is the standard public mirror of the EXORCISM-4 heuristic ESOP minimizer.
