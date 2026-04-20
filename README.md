@@ -4,7 +4,7 @@ The **[MITVerse EDA benchmarks](https://eda.mitverse.com/benchmarks)** site host
 
 # How to install and test (local)
 
-Tools for working with **ESOP / PLA** representations of logic circuits, including **MCNC** and **classic** benchmarks in BLIF and ESOP form. BLIF processing in the optional conversion scripts relies on [**Berkeley ABC**](https://github.com/berkeley-abc/abc).
+Tools for working with **ESOP / PLA** representations of logic circuits, including **MCNC** and **classic** benchmarks in BLIF and ESOP form.
 
 ## Quick start
 
@@ -16,8 +16,7 @@ Tools for working with **ESOP / PLA** representations of logic circuits, includi
    ./download_data.sh
    ```
 
-3. **(Optional)** For BLIF→ESOP batch scripts, build [Berkeley ABC](https://github.com/berkeley-abc/abc) and set `export ABC_BIN=/path/to/abc` (see [Configure ABC](#configure-abc)).
-4. **Run the tool** from `python/` (see [Run the main Python tool](#run-the-main-python-tool-interactive-rpla)):
+3. **Run the tool** from `python/` (see [Run the main Python tool](#run-the-main-python-tool-interactive-rpla)):
 
    ```bash
    cd python
@@ -27,12 +26,10 @@ Tools for working with **ESOP / PLA** representations of logic circuits, includi
 ## Prerequisites
 
 - **Python 3** (3.10+ recommended)
-- [**ABC**](https://github.com/berkeley-abc/abc): build the `abc` binary and point the tools at it (see below)
 - **`gdown`** (installed automatically by the download script if missing) for fetching the dataset from Google Drive
 
 Optional:
 
-- **`ABC_GIA_EXORCISM_TIMEOUT`**: for very large circuits, seconds for ABC’s GIA `&exorcism` step (e.g. `export ABC_GIA_EXORCISM_TIMEOUT=3600`). See `third_party/README.md`.
 - **Java**: only if you use the Java implementation under `javacode/`.
 
 ## Download the benchmarks (script)
@@ -61,16 +58,6 @@ Older layouts used `benchmarks/eda/{mcnc,classic/...}`; Python resolution falls 
 
 If download fails, check Google Drive access, `gdown` version, and that you run the script from the repo root so `-O benchmarks/` is correct.
 
-## Configure ABC
-
-The code defaults to an ABC binary at `/tmp/abc-berkeley/abc`. Override with:
-
-```bash
-export ABC_BIN=/path/to/your/abc
-```
-
-Build ABC from source: clone [berkeley-abc/abc](https://github.com/berkeley-abc/abc), run `make`, then set `ABC_BIN` to the produced `abc` executable.
-
 ## Run the main Python tool (interactive RPLA)
 
 The menu-driven driver is **`python/rpla.py`**. Run it **from the `python` directory** so package imports resolve:
@@ -97,16 +84,7 @@ The tool reads the PLA header and product lines, runs Mitra2012-style and optimi
 
 ## Batch convert from the repo root (non-interactive)
 
-Optional helper (requires `ABC_BIN` and a downloaded `benchmarks/` tree with MCNC BLIFs):
-
-```bash
-export ABC_BIN=/path/to/abc
-python3 convert_to_esop.py --source mcnc
-```
-
-Use `--source mcnc` (or see `python3 convert_to_esop.py --help` for other flags such as `--no-exorcism`).
-
-Other root-level helpers (paths under `benchmarks/`; set `ABC_BIN` where BLIF is involved):
+Optional root-level Python helpers (for example `convert_to_esop.py`) expect a downloaded `benchmarks/` tree; see each script’s `--help` for flags and inputs.
 
 - `python3 verify_esop_accuracy.py` — format checks on `*.esop` under `benchmarks/` (and optional `./eda`; see below)
 
@@ -137,7 +115,7 @@ Alternatively, compile the `benchmarkpla` package from `javacode/` with your IDE
 
 ## Submodule
 
-`third_party/exorcism` is a reference checkout of EXORCISM-4 sources; conversion uses ABC’s `&exorcism`, not a separate binary from this tree. Initialize with:
+`third_party/exorcism` is a reference checkout of EXORCISM-4 sources. Initialize with:
 
 ```bash
 git submodule update --init --recursive
