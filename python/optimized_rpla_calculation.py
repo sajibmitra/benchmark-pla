@@ -279,6 +279,8 @@ class OptimizedRPLACalculation(CostCalculation):
             print("               Dynamically Ordered PRODUCTS ")
             self.showProducts()
             print("==========================================================")
+            print("             Calculation of AND Plane")
+            print("==========================================================")
             print(f"Total AND Operations: {total_and_operations}")
             print(f"TDOT                : {and_tdot}")
             # print(f"P_QG: {p_qg}")
