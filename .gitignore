@@ -1,1 +1,6 @@
 eda_dataset.tar.gz
+.DS_Store
+**/__pycache__/
+*.pyc
+**/__MACOSX/
+abc.history
