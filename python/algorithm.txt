@@ -114,6 +114,7 @@ Start
 18. End Loop
 End
 
-Implementation note: optimized_rpla_calculation.py applies Algorithm 3
-(OrderingProducts) before calling the same xorPlane/andPlane realization as
-Mitra2012 Design (Sorted FUNCTIONS, Rearranged PRODUCTS, EX-OR / AND planes, Delay).
+Implementation note:
+- cost_calculation.py = Mitra2012 (MUX AND plane + Feynman XOR; GLSVLSI'12 baseline)
+- mitra2016_calculation.py = Mitra2016 paper Algorithms 1–5 (exact P_QG, Theorems 1–2)
+- optimized_rpla_calculation.py = Optimized (template-driven) with prefix-cube reuse

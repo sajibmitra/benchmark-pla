@@ -134,6 +134,7 @@ class OptimizedRPLACalculation(CostCalculation):
         self.gates += total_fg_gates
         self.garbages+=total_garbages
         self.ancilla_input_count+=total_ancilla_input_count
+        self.feynman_xor_plane_gates = int(total_fg_gates)
 
         # Print results
         if not self.quiet:
@@ -249,6 +250,24 @@ class OptimizedRPLACalculation(CostCalculation):
             v for v in p_qg.values() if v >= 2
         )
         total_gates = sum(template_counts.values()) - total_skipped_and_operations_due_to_p_qg
+        # π / π′ templates realize NOR-style ANDing (UNG); remaining templates use UMG.
+        umg_raw = (
+            template_counts["α"]
+            + template_counts["β"]
+            + template_counts["γ"]
+            + template_counts["α_prime"]
+            + template_counts["β_prime"]
+            + template_counts["γ_prime"]
+        )
+        ung_raw = template_counts["π"] + template_counts["π_prime"]
+        raw_tpl = umg_raw + ung_raw
+        if raw_tpl > 0 and total_gates >= 0:
+            self.umg_template_gates = int(round(total_gates * (umg_raw / raw_tpl)))
+            self.ung_template_gates = int(total_gates) - int(self.umg_template_gates)
+        else:
+            self.umg_template_gates = 0
+            self.ung_template_gates = 0
+        self.and_template_gate_total = int(total_gates)
         total_quantum_cost = total_gates * 5
         # each gates has 1 ancilla 
         total_ancilla_input_count = total_gates 

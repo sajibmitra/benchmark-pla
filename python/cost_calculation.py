@@ -14,6 +14,13 @@ class CostCalculation:
         self.xorTDOT = 0
         self.quiet = quiet
         self.ancilla_input_count = 0
+        # PTL / gate-mix accounting (Mitra2012: MUX AND-plane + Feynman XOR+AND planes)
+        self.feynman_xor_plane_gates = 0
+        self.mux_and_gates = 0
+        self.feynman_and_plane_gates = 0
+        self.umg_template_gates = 0
+        self.ung_template_gates = 0
+        self.and_template_gate_total = 0
 
     def xorPlane(self, plane_banner="Mitra2012 Design"):
         self.xorTDOT = 0
@@ -73,6 +80,7 @@ class CostCalculation:
         self.gates = total_gates
         self.garbages = total_garbages
         self.ancilla_input_count = total_ancilla_input_count
+        self.feynman_xor_plane_gates = int(total_gates)
 
         if not self.quiet:
             print("==========================================================")
@@ -144,6 +152,8 @@ class CostCalculation:
         self.gates += total_gates
         self.garbages += totalGarbages
         self.ancilla_input_count += total_ancilla_input_count
+        self.mux_and_gates = int(totalANDOperation)
+        self.feynman_and_plane_gates = int(totalXOROperation)
         if not self.quiet:
             print("==========================================================")
             print("             Calculation of AND Plane")

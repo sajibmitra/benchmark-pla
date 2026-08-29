@@ -14,6 +14,11 @@ class ExistingCalculation:
         self.delay = 0
         self.cost_calc = cost_calc
         self.quiet = quiet
+        self.ancilla_input_count = 0
+        # Gate mix for CNOT/Toffoli (standard quantum) mapping
+        self.feynman_xor_plane_gates = 0
+        self.toffoli_and_gates = 0
+        self.feynman_and_plane_gates = 0
 
     def funProRearrange(self):
         mapping = list(range(len(self.products)))
@@ -69,6 +74,8 @@ class ExistingCalculation:
         self.gates = totalXOROperation + len(self.functions) - xorTDOT
         self.garbages = len(self.products) - xorTDOT
         self.quantumCost = self.gates
+        self.feynman_xor_plane_gates = int(self.gates)
+        self.ancilla_input_count = len(self.functions) + self.garbages - len(self.products)
         if not self.quiet:
             print("==========================================================")
             print("                Existing Calculation")
@@ -130,6 +137,9 @@ class ExistingCalculation:
             self.delay = max(self.delay, product.delayCountAND + product.delayCountXOR)
         self.gates += totalANDOperation + totalXOROperation
         self.garbages += totalGarbages
+        self.toffoli_and_gates = int(totalANDOperation)
+        self.feynman_and_plane_gates = int(totalXOROperation)
+        self.ancilla_input_count += len(self.products) + totalGarbages - len(self.literals)
         if not self.quiet:
             print("==========================================================")
             print("                    AND Plane")
@@ -214,10 +224,12 @@ class ExistingCalculation:
         print("----------------------------------------------------------")
 
 
-def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc):
-    """Final summary for benchmark flows: Mitra2012 vs Optimized (template-driven) as a table."""
+def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc, mitra2016_calc=None):
+    """Final summary: Mitra2012, Mitra2016, and Optimized (template-driven)."""
     print("==========================================================")
-    print(f"           Final Calculation (Mitra2012)[Optimized RPLA] of {rpla.esopFileName}")
+    print(
+        f"           Final Calculation (Mitra2012)(Mitra2016)[Optimized RPLA] of {rpla.esopFileName}"
+    )
     print("==========================================================")
     w_alg = 34
     w_g = 8
@@ -250,6 +262,14 @@ def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc):
         + num(cost_calc.ancilla_input_count, w_ai)
         + num(cost_calc.quantumCost, w_q)
     )
+    if mitra2016_calc is not None:
+        print(
+            left("Mitra2016", w_alg)
+            + num(mitra2016_calc.gates, w_g)
+            + num(mitra2016_calc.garbages, w_gb)
+            + num(mitra2016_calc.ancilla_input_count, w_ai)
+            + num(mitra2016_calc.quantumCost, w_q)
+        )
     print(
         left("Optimized (template-driven)", w_alg)
         + num(opt_calc.gates, w_g)
