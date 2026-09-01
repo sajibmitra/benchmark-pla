@@ -117,4 +117,5 @@ End
 Implementation note:
 - cost_calculation.py = Mitra2012 (MUX AND plane + Feynman XOR; GLSVLSI'12 baseline)
 - mitra2016_calculation.py = Mitra2016 paper Algorithms 1–5 (exact P_QG, Theorems 1–2)
+- tara2016_calculation.py = Tara2016 journal Algorithms 1–2 (TB AND, F2G copy, Feynman XOR)
 - optimized_rpla_calculation.py = Optimized (template-driven) with prefix-cube reuse

@@ -224,11 +224,13 @@ class ExistingCalculation:
         print("----------------------------------------------------------")
 
 
-def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc, mitra2016_calc=None):
-    """Final summary: Mitra2012, Mitra2016, and Optimized (template-driven)."""
+def show_mitra2012_optimized_final(
+    rpla, cost_calc, opt_calc, mitra2016_calc=None, tara2016_calc=None
+):
+    """Final summary: Mitra2012, Mitra2016, Tara2016, and Optimized."""
     print("==========================================================")
     print(
-        f"           Final Calculation (Mitra2012)(Mitra2016)[Optimized RPLA] of {rpla.esopFileName}"
+        f"           Final Calculation (Mitra2012)(Mitra2016)(Tara2016)[Optimized RPLA] of {rpla.esopFileName}"
     )
     print("==========================================================")
     w_alg = 34
@@ -269,6 +271,14 @@ def show_mitra2012_optimized_final(rpla, cost_calc, opt_calc, mitra2016_calc=Non
             + num(mitra2016_calc.garbages, w_gb)
             + num(mitra2016_calc.ancilla_input_count, w_ai)
             + num(mitra2016_calc.quantumCost, w_q)
+        )
+    if tara2016_calc is not None:
+        print(
+            left("Tara2016 (Alg. 1–2)", w_alg)
+            + num(tara2016_calc.gates, w_g)
+            + num(tara2016_calc.garbages, w_gb)
+            + num(tara2016_calc.ancilla_input_count, w_ai)
+            + num(tara2016_calc.quantumCost, w_q)
         )
     print(
         left("Optimized (template-driven)", w_alg)

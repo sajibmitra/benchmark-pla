@@ -193,12 +193,17 @@ class RPLA:
                 )
                 from mitra2016_calculation import Mitra2016Calculation
                 from optimized_rpla_calculation import OptimizedRPLACalculation
+                from tara2016_calculation import Tara2016Calculation
 
                 snap = SimpleNamespace(
                     functions=copy.deepcopy(self.functions),
                     products=copy.deepcopy(self.products),
                 )
                 snap_m16 = SimpleNamespace(
+                    functions=copy.deepcopy(self.functions),
+                    products=copy.deepcopy(self.products),
+                )
+                snap_t16 = SimpleNamespace(
                     functions=copy.deepcopy(self.functions),
                     products=copy.deepcopy(self.products),
                 )
@@ -213,6 +218,12 @@ class RPLA:
                 mitra2016_calc.andPlane()
                 mitra2016_calc.xorPlane()
 
+                tara2016_calc = Tara2016Calculation(
+                    snap_t16, self.totalLiterals, quiet=benchmark_two_column
+                )
+                tara2016_calc.andPlane()
+                tara2016_calc.xorPlane()
+
                 opt_calc = OptimizedRPLACalculation(
                     snap, self.totalLiterals, quiet=benchmark_two_column
                 )
@@ -221,7 +232,11 @@ class RPLA:
 
                 if self.selectedMenu in (1, 2, 3):
                     show_mitra2012_optimized_final(
-                        self, costCalculation, opt_calc, mitra2016_calc=mitra2016_calc
+                        self,
+                        costCalculation,
+                        opt_calc,
+                        mitra2016_calc=mitra2016_calc,
+                        tara2016_calc=tara2016_calc,
                     )
                 else:
                     existingCalculation = ExistingCalculation(
