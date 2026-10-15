@@ -1,8 +1,27 @@
 # calculate-rpla-cost (`eda_hub`)
 
-Standalone, page-aligned calculation package for [eda.mitverse.com](https://eda.mitverse.com).
+Standalone calculation package for the Prefix Cube RPLA experiments and for [eda.mitverse.com](https://eda.mitverse.com). A reviewer can reproduce the benchmark load and the Qiskit cost model on a laptop. The step-by-step guide is [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
 
-The FastAPI host remains **mit-panel**; this repo owns the pure calculation code. mit-panel services are thin wrappers that import `eda_hub`.
+## System requirements
+
+| Item | Requirement |
+|---|---|
+| OS | macOS or Linux (the setup script is bash) |
+| Python | 3.10 or newer |
+| Qiskit | `qiskit>=1.0,<3`. The manuscript used Qiskit 2.3.1 |
+| Hardware | No GPU and no IBM Quantum account. `misex1` and `rd53` finish quickly. A full MCNC export is CPU time; each circuit has a 600 s timeout and the CSV is resumable |
+| EDA binaries | Not required for Qiskit. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are resolved only under `EDA_ROOT` |
+
+```bash
+cd /path/to/benchmark-pla
+./scripts/setup_local.sh
+source .venv/bin/activate
+eda-qiskit-analysis --circuit misex1
+```
+
+The manuscript's 20 covers live in `benchmarks/mcnc/Combinational/pla/All_PLAs/`. The loader prefers `.esop` and otherwise uses `.pla`.
+
+The FastAPI host remains **mit-panel**; this repo owns the calculation code. mit-panel services are thin wrappers that import `eda_hub`.
 
 ## Layout
 
@@ -73,12 +92,16 @@ Env overrides (`EDA_ABC`, `EDA_YOSYS`, …) are honored **only** when the path i
 
 ## Qiskit methodologies (`/qiskit`)
 
-| Key | Function | Formula |
+`eda-qiskit-analysis` prints `quantum_cost` from the package. That field is not the same number in every manuscript column. See [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
+
+| Key | Function | Package `quantum_cost` |
 |---|---|---|
-| `standard_quantum` | `calculate_standard_quantum_cost` | Σ(CNOT) + Σ(Toffoli) |
+| `standard_quantum` | `calculate_standard_quantum_cost` | Σ(CNOT) + Σ(Toffoli), each weighted 1. This is the CX/CCX tally, not `n_CX + 5 n_CCX` |
 | `umg_ung` | `calculate_umg_ung_cost` | Σ(CNOT) + 5×Σ(UMG+UNG) |
-| `gaur2024` | `calculate_gaur2024_cost` | FOM = width × Toffoli_depth |
-| `zhou2026` | `calculate_zhou2026_cost` | C = T_adj + W_error×E (EDDQC) |
+| `gaur2024` | `calculate_gaur2024_cost` | FOM = qubit width × Toffoli depth. The manuscript realization table does not use FOM |
+| `zhou2026` | `calculate_zhou2026_cost` | `C = T/(1-E) + W_error×E` in microseconds. The manuscript realization table does not use `C` |
+
+Full transpile (`optimization_level=2`, `seed_transpiler=42`) runs only when the circuit has at most 96 qubits and 8000 gates. Larger names keep the logical circuit. The NCT basis is `{x,cx,ccx,swap}`. The Prefix Cube basis is `{x,cx,umg,ung,swap}`.
 
 Legacy imports `from qiskit_realization import …` still work via `python/qiskit_realization`.
 

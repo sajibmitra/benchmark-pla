@@ -1,4 +1,11 @@
-"""Gaur2024 CNOT/Toffoli FOM — measured from a realized Qiskit QuantumCircuit."""
+"""Gaur2024 resource vector on a Qiskit CX/CCX circuit.
+
+Table I of Gaur and Thapliyal, TVLSI 2024, reports CNOT count, CNOT depth,
+Toffoli count, Toffoli depth, and qubit width for the modulo-(2^n+1) adders.
+Fig. 5 defines FOM = circuit width × Toffoli depth. NMED is a device
+measurement and is not computed here. The QMA1–QMA4 adder is not rebuilt;
+these factors are read from the same ESOP CX/CCX netlist.
+"""
 from __future__ import annotations
 
 from typing import Any
@@ -9,10 +16,11 @@ from .circuit_builder import build_esop_cnot_toffoli_circuit
 
 def calculate_gaur2024_cost(rpla: Any) -> dict[str, Any]:
     """
-    Realization 3: Gaur2024 methodology (TVLSI 2024).
+    Realization 3: Gaur2024 resource accounting (TVLSI 2024, Table I and Fig. 5).
 
-    Builds a Qiskit X/CX/CCX circuit for the ESOP planes and reports
-    quantum_cost = FOM = qubit_width × Toffoli_depth.
+    Builds a Qiskit X/CX/CCX circuit and reports CNOT count, CNOT depth,
+    Toffoli count, Toffoli depth, qubit width, and the derived
+    FOM = qubit_width × Toffoli_depth. ``quantum_cost`` is that FOM.
     """
     snap = snapshot_rpla(rpla, include_total_literals=True)
     qc, layout_meta = build_esop_cnot_toffoli_circuit(snap)
@@ -40,8 +48,9 @@ def calculate_gaur2024_cost(rpla: Any) -> dict[str, Any]:
             "fom": fom,
             "circuit_depth": int(qc.depth()),
             "note": (
-                "Qiskit QuantumCircuit (X/CX/CCX) realizing the ESOP AND/XOR planes. "
-                "Quantum cost = FOM = qubit_width × Toffoli_depth (Gaur & Thapliyal, TVLSI 2024)."
+                "Gaur Table I factors on the Qiskit X/CX/CCX ESOP circuit: "
+                "CNOT count, CNOT depth, Toffoli count, Toffoli depth, and width. "
+                "FOM = width × Toffoli_depth (Fig. 5). NMED is not measured."
             ),
         },
         "qiskit_layout": layout_meta,

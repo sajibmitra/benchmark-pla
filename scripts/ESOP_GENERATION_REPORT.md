@@ -1,5 +1,7 @@
 # ESOP Generation - 100% Accurate Completion Report
 
+The manuscript's 20 representative covers are read from `benchmarks/mcnc/Combinational/pla/All_PLAs/`, preferring `.esop` and otherwise `.pla`. How to run them is in [docs/LOCAL_QISKIT.md](../docs/LOCAL_QISKIT.md). The rest of this file is the generation log.
+
 **Date Generated**: April 11, 2026  
 **Status**: ✅ COMPLETE - ALL BENCHMARKS CONVERTED
 

@@ -1,5 +1,7 @@
 # `python/` — compatibility shims by working principle
 
+Reviewers should follow the repository [README](../README.md) and [docs/LOCAL_QISKIT.md](../docs/LOCAL_QISKIT.md). New runs should import `eda_hub`, not these shims.
+
 Canonical calculation code lives in **`eda_hub`**. This tree keeps legacy
 import names and groups them by working principle.
 

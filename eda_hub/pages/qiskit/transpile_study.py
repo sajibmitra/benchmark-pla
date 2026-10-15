@@ -17,7 +17,7 @@ from .circuit_builder import (
     circuit_to_qiskit_source,
 )
 from .unitaries import umg_gate, ung_gate
-from .zhou2026 import _linear_coupling, _zhou_cost
+from .zhou2026 import _linear_coupling, account_eddqc, score_routed_circuit
 
 _DEFAULT_OPT_LEVEL = 2
 _MAX_QUBITS_FULL_TRANSPILE = 96
@@ -35,12 +35,12 @@ QUANTUM_COST_FORMULA = {
         "(optimization_level=2)"
     ),
     "gaur2024": (
-        "FOM = qubit_width × Toffoli_depth on transpiled CX/CCX circuit "
-        "(Gaur & Thapliyal, TVLSI 2024)"
+        "CNOT count, CNOT depth, Toffoli count, Toffoli depth, width; "
+        "FOM = width × Toffoli_depth (Gaur & Thapliyal, TVLSI 2024, Table I, Fig. 5)"
     ),
     "zhou2026": (
-        "C = T_adj + W_error×E on LNN-routed qiskit.transpile "
-        "(Zhou et al., TVLSI 2026 EDDQC)"
+        "Per operation C = T/(1-E) + W_error×E from Zhou Table I; "
+        "LNN path picks min(swap, switch, teleport) (Zhou et al., TVLSI 2026, Algorithm 1)"
     ),
 }
 
@@ -85,13 +85,31 @@ def _transpile_lnn(qc: Any, *, optimization_level: int):
     from qiskit import transpile
 
     n = int(qc.num_qubits)
-    return transpile(
-        qc,
-        coupling_map=_linear_coupling(n),
-        basis_gates=["x", "cx", "ccx", "swap"],
-        optimization_level=max(1, min(optimization_level, 2)),
-        seed_transpiler=42,
-    )
+    level = max(1, min(optimization_level, 2))
+    try:
+        return transpile(
+            qc,
+            coupling_map=_linear_coupling(n),
+            basis_gates=["x", "cx", "ccx", "swap"],
+            optimization_level=level,
+            seed_transpiler=42,
+        )
+    except Exception:
+        # Current Qiskit rejects a 3-qubit gate on a custom coupling map.
+        # Decompose CCX, then route the CX circuit on the line.
+        decomposed = transpile(
+            qc,
+            basis_gates=["x", "cx", "h", "t", "tdg", "swap"],
+            optimization_level=level,
+            seed_transpiler=42,
+        )
+        return transpile(
+            decomposed,
+            coupling_map=_linear_coupling(n),
+            basis_gates=["x", "cx", "h", "t", "tdg", "swap"],
+            optimization_level=level,
+            seed_transpiler=42,
+        )
 
 
 def _base_entry(
@@ -208,17 +226,18 @@ def _study_umg_ung(qc0: Any, layout: dict[str, Any], *, opt: int) -> dict[str, A
 def _study_gaur(qc0: Any, layout: dict[str, Any], *, opt: int) -> dict[str, Any]:
     transpiled = False
     qc = qc0
-    note = "Logical CX/CCX circuit for Gaur2024 FOM (transpile skipped: too large)."
+    note = "Logical CX/CCX circuit; Gaur Table I factors (transpile skipped: too large)."
     if _can_full_transpile(qc0):
         try:
             qc = _transpile_cx_ccx(qc0, optimization_level=opt)
             transpiled = True
             note = (
                 f"qiskit.transpile(basis_gates=[x,cx,ccx,swap], "
-                f"optimization_level={opt}) then FOM = width × Toffoli_depth."
+                f"optimization_level={opt}); Gaur Table I factors, "
+                "FOM = width × Toffoli_depth."
             )
         except Exception as exc:  # noqa: BLE001
-            note = f"Transpile failed ({exc}); FOM from logical circuit."
+            note = f"Transpile failed ({exc}); Gaur factors from the logical circuit."
 
     ops = ops_count(qc)
     width = int(qc.num_qubits)
@@ -240,7 +259,10 @@ def _study_gaur(qc0: Any, layout: dict[str, Any], *, opt: int) -> dict[str, Any]
             "fom": fom,
             "circuit_depth": int(qc.depth()),
             "swap_gates": int(ops.get("swap", 0)),
-            "note": "FOM = qubit_width × Toffoli_depth on the optimized Qiskit circuit.",
+            "note": (
+                "Gaur Table I: CNOT count, CNOT depth, Toffoli count, Toffoli depth, width. "
+                "FOM = width × Toffoli_depth. NMED is not measured."
+            ),
         },
         transpile_note=note,
         optimization_level=opt,
@@ -248,50 +270,36 @@ def _study_gaur(qc0: Any, layout: dict[str, Any], *, opt: int) -> dict[str, Any]
     )
 
 
-def _bounded_lnn_swap_estimate(qc: Any) -> tuple[int, int]:
-    """Distance-based LNN SWAP estimate with a hard cap to avoid pathological blow-ups."""
-    from .zhou2026 import _estimate_lnn_swap_overhead
-
-    swap_est, extra_depth = _estimate_lnn_swap_overhead(qc)
-    n = max(1, int(qc.num_qubits))
-    g = max(1, total_gates(ops_count(qc)))
-    # At most ~n SWAPs per multi-qubit op on average for a linear map.
-    cap = n * g
-    if swap_est > cap:
-        swap_est = cap
-        extra_depth = min(extra_depth, cap)
-    return int(swap_est), int(extra_depth)
-
-
-def _zhou_entry(
+def _zhou_entry_from_account(
     qc: Any,
     layout: dict[str, Any],
+    account: dict[str, Any],
     *,
     opt: int,
     transpiled: bool,
     note: str,
 ) -> dict[str, Any]:
-    ops = ops_count(qc)
-    depth = int(qc.depth())
-    two_q = int(ops.get("cx", 0)) + int(ops.get("ccx", 0)) + 3 * int(ops.get("swap", 0))
-    cost = _zhou_cost(depth, two_q)
     return _base_entry(
         framework_id="zhou2026_edqqc",
-        label="Zhou2026 EDDQC LNN (Qiskit transpile)",
+        label="Zhou2026 EDDQC (Qiskit)",
         qc=qc,
         layout_meta=layout,
-        quantum_cost=int(round(cost["C"])),
+        quantum_cost=int(round(account["C"])),
         gate_mix={
-            "cnot_gates": int(ops.get("cx", 0)),
-            "toffoli_gates": int(ops.get("ccx", 0)),
-            "swap_gates": int(ops.get("swap", 0)),
-            "circuit_depth": depth,
+            "cnot_gates": int(account["cnot_gates"]),
+            "toffoli_gates": int(account["toffoli_gates"]),
+            "swap_gates": int(account["swap_gates"]),
+            "cross_group_swaps": int(account["cross_group_swaps"]),
+            "switch_ops": int(account["switch_ops"]),
+            "teleport_ops": int(account["teleport_ops"]),
+            "gates": int(account["gates"]),
+            "circuit_depth": int(account["depth"]),
             "lnn_transpile": transpiled,
-            "T_adj": round(cost["T_adj"], 4),
-            "E": round(cost["E"], 6),
-            "C": round(cost["C"], 4),
+            "T_adj": account["T_adj"],
+            "W_error": account["W_error"],
+            "C": account["C"],
             "qubit_width": int(qc.num_qubits),
-            "note": "C = T_adj + W_error×E on the LNN-routed Qiskit circuit.",
+            "note": note,
         },
         transpile_note=note,
         optimization_level=opt,
@@ -300,113 +308,48 @@ def _zhou_entry(
 
 
 def _study_zhou(qc0: Any, layout: dict[str, Any], *, opt: int) -> dict[str, Any]:
-    from qiskit import transpile
+    """EDDQC on the CX/CCX circuit.
 
+    Circuits inside the LNN transpile limit keep a routed Qiskit circuit and
+    are scored with Table I. All others use Algorithm 1 (swap path versus
+    switch versus gate teleportation) on the logical line.
+    """
     can_lnn = (
         int(qc0.num_qubits) <= _MAX_QUBITS_LNN_TRANSPILE
         and total_gates(ops_count(qc0)) <= _MAX_GATES_LNN_TRANSPILE
     )
-    if not can_lnn:
-        swap_est, extra_depth = _bounded_lnn_swap_estimate(qc0)
-        ops = ops_count(qc0)
-        ops["swap"] = int(ops.get("swap", 0)) + swap_est
-        depth = int(qc0.depth()) + extra_depth
-        two_q = int(ops.get("cx", 0)) + int(ops.get("ccx", 0)) + 3 * int(ops.get("swap", 0))
-        cost = _zhou_cost(depth, two_q)
-        return _base_entry(
-            framework_id="zhou2026_edqqc",
-            label="Zhou2026 EDDQC LNN (Qiskit)",
-            qc=qc0,
-            layout_meta=layout,
-            quantum_cost=int(round(cost["C"])),
-            gate_mix={
-                "cnot_gates": int(ops.get("cx", 0)),
-                "toffoli_gates": int(ops.get("ccx", 0)),
-                "swap_gates": int(ops.get("swap", 0)),
-                "circuit_depth": depth,
-                "lnn_transpile": False,
-                "T_adj": round(cost["T_adj"], 4),
-                "E": round(cost["E"], 6),
-                "C": round(cost["C"], 4),
-                "qubit_width": int(qc0.num_qubits),
-                "note": "Circuit exceeds full-transpile limits; LNN SWAP estimate applied.",
-            },
-            transpile_note="Skipped coupling-map transpile (size limit); distance-based SWAP estimate.",
-            optimization_level=opt,
-            transpiled=False,
-        )
-
-    # Prefer LNN routing on CX/CCX; if that fails, decompose CCX→CX then route.
     level = max(1, min(opt, 2))
-    try:
-        routed = _transpile_lnn(qc0, optimization_level=level)
-        return _zhou_entry(
-            routed,
-            layout,
-            opt=opt,
-            transpiled=True,
-            note=(
-                f"qiskit.transpile(coupling_map=LNN, basis_gates=[x,cx,ccx,swap], "
-                f"optimization_level={level}, seed_transpiler=42)."
-            ),
-        )
-    except Exception:
-        pass
+    if can_lnn:
+        try:
+            routed = _transpile_lnn(qc0, optimization_level=level)
+            account = score_routed_circuit(routed)
+            return _zhou_entry_from_account(
+                routed,
+                layout,
+                account,
+                opt=opt,
+                transpiled=True,
+                note=(
+                    f"qiskit.transpile(coupling_map=LNN, basis_gates=[x,cx,ccx,swap], "
+                    f"optimization_level={level}, seed_transpiler=42); "
+                    "Table I cost per gate, W_error=1, no error clamp."
+                ),
+            )
+        except Exception:
+            pass
 
-    try:
-        n = int(qc0.num_qubits)
-        decomposed = transpile(
-            qc0,
-            basis_gates=["x", "cx", "h", "t", "tdg", "swap"],
-            optimization_level=level,
-            seed_transpiler=42,
-        )
-        routed = transpile(
-            decomposed,
-            coupling_map=_linear_coupling(n),
-            basis_gates=["x", "cx", "h", "t", "tdg", "swap"],
-            optimization_level=level,
-            seed_transpiler=42,
-        )
-        return _zhou_entry(
-            routed,
-            layout,
-            opt=opt,
-            transpiled=True,
-            note=(
-                f"CCX decomposed then qiskit.transpile(coupling_map=LNN, "
-                f"basis_gates=[x,cx,h,t,tdg,swap], optimization_level={level})."
-            ),
-        )
-    except Exception:
-        swap_est, extra_depth = _bounded_lnn_swap_estimate(qc0)
-        ops = ops_count(qc0)
-        ops["swap"] = int(ops.get("swap", 0)) + swap_est
-        depth = int(qc0.depth()) + extra_depth
-        two_q = int(ops.get("cx", 0)) + int(ops.get("ccx", 0)) + 3 * int(ops.get("swap", 0))
-        cost = _zhou_cost(depth, two_q)
-        return _base_entry(
-            framework_id="zhou2026_edqqc",
-            label="Zhou2026 EDDQC LNN (Qiskit)",
-            qc=qc0,
-            layout_meta=layout,
-            quantum_cost=int(round(cost["C"])),
-            gate_mix={
-                "cnot_gates": int(ops.get("cx", 0)),
-                "toffoli_gates": int(ops.get("ccx", 0)),
-                "swap_gates": int(ops.get("swap", 0)),
-                "circuit_depth": depth,
-                "lnn_transpile": False,
-                "T_adj": round(cost["T_adj"], 4),
-                "E": round(cost["E"], 6),
-                "C": round(cost["C"], 4),
-                "qubit_width": int(qc0.num_qubits),
-                "note": "Estimated LNN SWAP overhead; C = T_adj + W_error×E.",
-            },
-            transpile_note="LNN coupling-map transpile failed; used distance-based SWAP estimate.",
-            optimization_level=opt,
-            transpiled=False,
-        )
+    account = account_eddqc(qc0)
+    return _zhou_entry_from_account(
+        qc0,
+        layout,
+        account,
+        opt=opt,
+        transpiled=False,
+        note=(
+            "Algorithm 1 on the LNN line: min(SWAP path, switch, gate teleportation) "
+            "using Zhou Table I. W_error=1. No distance-based SWAP blow-up and no E clamp."
+        ),
+    )
 
 
 def run_transpile_comparative_study(

@@ -3,6 +3,8 @@
 Calculation code for the EDA hub lives in this repository (`eda_hub`).  
 **mit-panel** hosts FastAPI routes, DB caches, event logging, auth, and bibliometric tools as thin wrappers that `import eda_hub`.
 
+Reviewers reproducing the manuscript should start at [LOCAL_QISKIT.md](LOCAL_QISKIT.md). Qiskit cost analysis needs Python ≥ 3.10 and `pip install -e '.[qiskit]'`. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are optional and are resolved only under `EDA_ROOT`.
+
 | Hub page / route | Package | Notes |
 |---|---|---|
 | `/benchmarks` | `eda_hub.pages.benchmarks` | Mitra / Tara / Optimized RPLA, SOP→ESOP, ESOP cost, index |
