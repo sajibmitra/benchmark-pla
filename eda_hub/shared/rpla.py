@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+
+from eda_hub.paths import repo_root as _package_repo_root
 from eda_hub.shared.benchmark_paths import (
     benchmarks_root,
     classic_esop_benchmark_dir,
@@ -28,7 +30,7 @@ class RPLA:
 
     def resolve_input_file(self, fileName):
         file_path = Path(fileName)
-        project_root = Path(__file__).resolve().parent.parent
+        project_root = _package_repo_root()
         source_dirs = []
 
         if self.selectedMenu == 2:

@@ -4,3 +4,13 @@ eda_dataset.tar.gz
 *.pyc
 **/__MACOSX/
 abc.history
+.venv/
+venv/
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+qiskit-realization-comparison-*.csv
+qiskit-realization-comparison-*.json

@@ -2,6 +2,27 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Qiskit: single circuit (5xp1)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "eda_hub.pages.qiskit.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": ["--circuit", "5xp1"]
+    },
+    {
+      "name": "Qiskit: local ESOP file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "eda_hub.pages.qiskit.cli",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "args": [
+        "--file",
+        "${workspaceFolder}/benchmarks/mcnc/Combinational/pla/All_PLAs/5xp1.esop"
+      ]
+    },
+    {
       "name": "Python: RPLA (rpla.py)",
       "type": "debugpy",
       "request": "launch",

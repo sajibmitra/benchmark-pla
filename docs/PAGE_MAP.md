@@ -9,7 +9,7 @@ Calculation code for the EDA hub lives in this repository (`eda_hub`).
 | `/cost-metric` | `eda_hub.pages.cost_metric` | Gate cost tables across technologies |
 | `/post-cmos-metric` | `eda_hub.pages.post_cmos` | Memristor / CNTFET characterization & architecture cost |
 | `/cmos-ptl-tgl` | `eda_hub.pages.cmos_ptl_tgl` | ngspice, Yosys, OpenROAD, reversible helpers |
-| `/qiskit` | `eda_hub.pages.qiskit` | Standard / UMG-UNG / Gaur2024 / Zhou2026 |
+| `/qiskit` | `eda_hub.pages.qiskit` | Standard / UMG-UNG / Gaur2024 / Zhou2026; local CLI `eda-qiskit-analysis` (see `docs/LOCAL_QISKIT.md`) |
 | (bibliometric) | *not in this repo* | Remains in mit-panel; see `pages/bibliometric/README.md` |
 
 ## Shared / tools
@@ -27,4 +27,6 @@ Calculation code for the EDA hub lives in this repository (`eda_hub`).
 - `EDA_ROOT` — Data/eda tree (default: parent of this repo)
 - `EDA_CALCULATE_RPLA_COST_ROOT` — this repository root
 - `EDA_BENCHMARKS_ROOT` — benchmark circuit tree
-- `EDA_QISKIT_SITE_PACKAGES` — optional Qiskit site-packages for the API process
+- `EDA_QISKIT_SITE_PACKAGES` — optional Qiskit site-packages if not installed in the active venv
+
+Local workstation Qiskit setup: [LOCAL_QISKIT.md](LOCAL_QISKIT.md).

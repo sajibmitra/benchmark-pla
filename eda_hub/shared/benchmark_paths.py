@@ -15,13 +15,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from eda_hub.paths import benchmarks_root, repo_root
 
-def repo_root() -> Path:
-    return Path(__file__).resolve().parent.parent
-
-
-def benchmarks_root() -> Path:
-    return repo_root() / "benchmarks"
+__all__ = [
+    "benchmarks_root",
+    "classic_esop_benchmark_dir",
+    "epfl_arithmetic_dir",
+    "epfl_benchmark_root",
+    "mcnc_benchmark_root",
+    "repo_root",
+]
 
 
 def _prefer_dir(primary: Path, legacy: Path) -> Path:

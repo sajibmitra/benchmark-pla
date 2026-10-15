@@ -13,28 +13,33 @@ class QiskitRealizationError(Exception):
     """Raised when a Qiskit realization cost calculation cannot complete."""
 
 
-_QISKIT_SITE_CANDIDATES = (
-    os.environ.get("EDA_QISKIT_SITE_PACKAGES", "").strip(),
-    str(
-        Path.home()
-        / "venvs"
-        / "qiskit"
-        / "lib"
-        / f"python{sys.version_info.major}.{sys.version_info.minor}"
-        / "site-packages"
-    ),
-    "/home/mitpanel/venvs/qiskit/lib/python3.12/site-packages",
-)
+def _qiskit_site_candidates() -> list[str]:
+    """Optional site-packages hints for workstations that keep a dedicated Qiskit venv."""
+    candidates: list[str] = []
+    env = os.environ.get("EDA_QISKIT_SITE_PACKAGES", "").strip()
+    if env:
+        candidates.append(env)
+    ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+    home = Path.home()
+    candidates.extend(
+        [
+            str(home / "venvs" / "qiskit" / "lib" / f"python{ver}" / "site-packages"),
+            str(home / ".venvs" / "qiskit" / "lib" / f"python{ver}" / "site-packages"),
+            str(home / ".local" / "share" / "venvs" / "qiskit" / "lib" / f"python{ver}" / "site-packages"),
+        ]
+    )
+    return candidates
 
 
 def ensure_qiskit() -> None:
+    """Import Qiskit from the active environment, or from optional site-packages hints."""
     try:
         from qiskit import QuantumCircuit  # noqa: F401
 
         return
     except ImportError:
         pass
-    for site in _QISKIT_SITE_CANDIDATES:
+    for site in _qiskit_site_candidates():
         if site and Path(site).is_dir() and site not in sys.path:
             sys.path.insert(0, site)
             try:
@@ -45,7 +50,8 @@ def ensure_qiskit() -> None:
                 continue
     raise QiskitRealizationError(
         "Qiskit is required for this realization. "
-        "Install qiskit or set EDA_QISKIT_SITE_PACKAGES."
+        "On any workstation: pip install -e '.[qiskit]' "
+        "(or set EDA_QISKIT_SITE_PACKAGES to a Qiskit site-packages directory)."
     )
 
 
