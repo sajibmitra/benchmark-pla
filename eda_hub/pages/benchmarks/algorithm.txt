@@ -119,3 +119,8 @@ Implementation note:
 - mitra2016_calculation.py = Mitra2016 paper Algorithms 1–5 (exact P_QG, Theorems 1–2)
 - tara2016_calculation.py = Tara2016 journal Algorithms 1–2 (TB AND, F2G copy, Feynman XOR)
 - optimized_rpla_calculation.py = Optimized (template-driven) with prefix-cube reuse
+- qiskit_realization/ = Qiskit benchmark comparison (one function per methodology):
+    - standard_quantum.py::calculate_standard_quantum_cost  (CNOT/Toffoli)
+    - umg_ung.py::calculate_umg_ung_cost                    (UMG/UNG + CNOT)
+    - gaur2024.py::calculate_gaur2024_cost                  (FOM from Qiskit circuit)
+    - zhou2026.py::calculate_zhou2026_cost                  (EDDQC LNN cost from Qiskit)

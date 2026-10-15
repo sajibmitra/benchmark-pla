@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "eda-hub"
+version = "0.1.0"
+description = "Page-aligned calculation package for eda.mitverse.com (standalone under Data/eda)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Proprietary" }
+authors = [{ name = "Mitverse EDA" }]
+dependencies = []
+
+[project.optional-dependencies]
+qiskit = ["qiskit>=1.0,<3"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["eda_hub*"]
+
+[tool.setuptools.package-data]
+eda_hub = ["py.typed"]

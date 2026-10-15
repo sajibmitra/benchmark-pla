@@ -1,14 +1,5 @@
-class Literal:
-    def __init__(self, id):
-        self.id = id
-        self.frequency = 0
-        self.dotFlag = False
-        self.flag = False
-        self.productsList = []
+"""Flat compat stub — prefer principle packages under python/; impl in eda_hub.shared.literal."""
+from __future__ import annotations
 
-    def addProduct(self, productId):
-        self.frequency += 1
-        self.productsList.append(productId)
-
-    def getSize(self):
-        return self.frequency
+from _shim_bootstrap import _REPO  # noqa: F401
+from eda_hub.shared.literal import *  # noqa: E402, F403

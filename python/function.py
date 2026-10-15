@@ -1,16 +1,5 @@
-class Function:
-    def __init__(self, funcId):
-        self.id = funcId
-        self.productDensity = 0
-        self.productsList = []
+"""Flat compat stub — prefer principle packages under python/; impl in eda_hub.shared.function."""
+from __future__ import annotations
 
-    def addProduct(self, productId):
-        self.productsList.append(productId)
-        self.productDensity += 1
-        return len(self.productsList) - 1
-
-    def getData(self):
-        return self.productsList
-
-    def getSize(self):
-        return self.productDensity
+from _shim_bootstrap import _REPO  # noqa: F401
+from eda_hub.shared.function import *  # noqa: E402, F403

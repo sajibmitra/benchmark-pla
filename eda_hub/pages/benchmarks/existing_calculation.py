@@ -1,0 +1,289 @@
+from eda_hub.shared.rpla import RPLA
+from eda_hub.shared.literal import Literal
+
+class ExistingCalculation:
+    def __init__(self, rpla, cost_calc=None, quiet=False):
+        self.rpla = rpla
+        self.functions = rpla.functions
+        self.products = rpla.products
+        self.finalProducts = []
+        self.literals = []
+        self.quantumCost = 0
+        self.garbages = 0
+        self.gates = 0
+        self.delay = 0
+        self.cost_calc = cost_calc
+        self.quiet = quiet
+        self.ancilla_input_count = 0
+        # Gate mix for CNOT/Toffoli (standard quantum) mapping
+        self.feynman_xor_plane_gates = 0
+        self.toffoli_and_gates = 0
+        self.feynman_and_plane_gates = 0
+
+    def funProRearrange(self):
+        mapping = list(range(len(self.products)))
+        self.products.sort(key=lambda p: p.getFrequency())
+        for i, product in enumerate(self.products):
+            mapping[product.id] = i
+        for function in self.functions:
+            function.productsList = [mapping[pos] for pos in function.productsList]
+        for i in range(len(self.functions) - 1, 0, -1):
+            if self.functions[i - 1].getSize() == 1:
+                self.functions[i], self.functions[i - 1] = self.functions[i - 1], self.functions[i]
+                break
+
+    def xorPlane(self):
+        xorTDOT = 0
+        totalXOROperation = 0
+        self.funProRearrange()
+        self.resetFlagOfProduct()
+        for function in reversed(self.functions):
+            totalXOROperation += function.getSize() - 1
+            if function.getSize() == 1:
+                if not self.products[function.productsList[0]].flag:
+                    xorTDOT += 1
+                    self.products[function.productsList[0]].flag = True
+            else:
+                flag = 0
+                for prod_idx in function.productsList:
+                    if not self.products[prod_idx].flag:
+                        if flag == 0:
+                            xorTDOT += 1
+                            flag = 1
+                        self.products[prod_idx].flag = True
+        self.resetFlagOfProduct()
+        count = 0
+        for function in reversed(self.functions):
+            function.productsList.sort(reverse=True)
+            if function.productsList:
+                count = self.products[function.productsList[0]].delayCountXOR
+            else:
+                count = 0
+            flag = 0
+            for j, prod_idx in enumerate(function.productsList):
+                if not self.products[prod_idx].flag:
+                    flag = 1
+                    self.products[prod_idx].flag = True
+                if self.products[prod_idx].delayCountXOR + 1 > count:
+                    count = self.products[prod_idx].delayCountXOR + 1
+                else:
+                    count += 1
+                if j == function.getSize() - 1 and flag == 1:
+                    count -= 1
+                self.products[prod_idx].delayCountXOR = count
+        self.gates = totalXOROperation + len(self.functions) - xorTDOT
+        self.garbages = len(self.products) - xorTDOT
+        self.quantumCost = self.gates
+        self.feynman_xor_plane_gates = int(self.gates)
+        self.ancilla_input_count = len(self.functions) + self.garbages - len(self.products)
+        if not self.quiet:
+            print("==========================================================")
+            print("                Existing Calculation")
+            print("==========================================================")
+            print("      Rearranged FUNCTIONS & PRODUCTS ")
+            print("==========================================================")
+            self.showFunctions()
+            self.showProducts()
+            print("==========================================================")
+            print("                     EXOR Plane")
+            print("==========================================================")
+            print(f"Total EXOR Operations : {totalXOROperation}")
+            print(f"TDOT                  : {xorTDOT}")
+            print(f"Feynman Gate          : {self.gates}")
+            print(f"Garbage, GB           : {self.garbages}")
+            print("==========================================================")
+
+    def andPlane(self):
+        andTDOT = 0
+        totalANDOperation = 0
+        constantProductExist = False
+        self.initializeDoubleLiteral()
+        for i in range(len(self.products) - 1, -1, -1):
+            tempProduct = self.products[i]
+            flag = False
+            if tempProduct.getSize() > 0:
+                for index in tempProduct.literals:
+                    if not flag:
+                        andTDOT += 1
+                        self.literals[index].dotFlag = True
+                    flag = True
+                    self.literals[index].flag = True
+                totalANDOperation += tempProduct.getSize() - 1
+            else:
+                constantProductExist = True
+        for tempLiteral in self.literals:
+            count = 0
+            if tempLiteral.productsList:
+                count = self.products[tempLiteral.productsList[0]].delayCountAND
+            for j, prod_idx in enumerate(tempLiteral.productsList):
+                if self.products[prod_idx].delayCountAND + 1 > count:
+                    count = self.products[prod_idx].delayCountAND + 1
+                else:
+                    count += 1
+                if j == len(tempLiteral.productsList) - 1 and tempLiteral.dotFlag:
+                    count -= 1
+                self.products[prod_idx].delayCountAND = count
+        if constantProductExist:
+            totalXOROperation = len(self.products) - andTDOT - 1
+        else:
+            totalXOROperation = len(self.products) - andTDOT
+        totalXOROperation += len(self.literals) // 2
+        totalGarbages = totalANDOperation + 2 * (len(self.literals) // 2) - andTDOT
+        self.quantumCost += totalANDOperation * 5 + totalXOROperation
+        self.delay = 0
+        for product in self.products:
+            if product.getSize() != 0:
+                product.delayCountAND += 1
+            self.delay = max(self.delay, product.delayCountAND + product.delayCountXOR)
+        self.gates += totalANDOperation + totalXOROperation
+        self.garbages += totalGarbages
+        self.toffoli_and_gates = int(totalANDOperation)
+        self.feynman_and_plane_gates = int(totalXOROperation)
+        self.ancilla_input_count += len(self.products) + totalGarbages - len(self.literals)
+        if not self.quiet:
+            print("==========================================================")
+            print("                    AND Plane")
+            print("==========================================================")
+            print(f"Total AND Operations: {totalANDOperation}")
+            print(f"TDOT                : {andTDOT}")
+            print(f"Total Toffoli Gates : {totalANDOperation}")
+            print(f"Total Feynman Gates : {totalXOROperation}")
+            print(f"Garbage, GB         : {totalGarbages}\n")
+            print("==========================================================")
+
+    def showFinalResult(self, opt_calc=None):
+        print("==========================================================")
+        print(f"           Final Calculation of {self.rpla.esopFileName}")
+        print("==========================================================")
+        if self.cost_calc is not None and opt_calc is not None:
+            print(
+                f"Total Gates   : {self.gates}({self.cost_calc.gates})"
+                f"[{opt_calc.gates}]"
+            )
+            print(
+                f"Total Garbages: {self.garbages}({self.cost_calc.garbages})"
+                f"[{opt_calc.garbages}]"
+            )
+            print(
+                f"Total Delay   : {self.delay}({self.cost_calc.delay})"
+                f"[{opt_calc.delay}]"
+            )
+            print(
+                f"Total Q. Cost : {self.quantumCost}({self.cost_calc.quantumCost})"
+                f"[{opt_calc.quantumCost}]"
+            )
+            print(
+                "  (Existing)(Mitra2012)[Optimized RPLA]"
+            )
+        elif self.cost_calc is not None:
+            print(f"Total Gates   : {self.gates}({self.cost_calc.gates})")
+            print(f"Total Garbages: {self.garbages}({self.cost_calc.garbages})")
+            print(f"Total Delay   : {self.delay}({self.cost_calc.delay})")
+            print(f"Total Q. Cost : {self.quantumCost}({self.cost_calc.quantumCost})")
+        else:
+            print(f"Total Gates   : {self.gates}")
+            print(f"Total Garbages: {self.garbages}")
+            print(f"Total Delay   : {self.delay}")
+            print(f"Total Q. Cost : {self.quantumCost}")
+
+    def initializeDoubleLiteral(self):
+        self.literals = []
+        for i in range(len(self.products)):
+            self.products[i].literals.clear()
+            item = self.products[i].bitPattern
+            for j in range(2 * RPLA.totalLiterals):
+                if i == 0:
+                    self.literals.append(Literal(j))
+                if item[j // 2] == '1' and j % 2 == 0:
+                    self.products[i].literals.append(j)
+                    self.literals[j].addProduct(i)
+                elif item[j // 2] == '0' and j % 2 == 1:
+                    self.products[i].literals.append(j)
+                    self.literals[j].addProduct(i)
+
+    def resetFlagOfProduct(self):
+        for product in self.products:
+            product.flag = False
+            product.delayCountAND = 0
+            product.delayCountXOR = 0
+
+    def showProducts(self):
+        print("----------------------------------------------------------")
+        for product in self.products:
+            line = f"Product [{product.id}]: "
+            line += ",".join(f"f{j}({pos})" for j, pos in enumerate(product.functions) if pos >= 0)
+            print(line)
+        print("----------------------------------------------------------")
+
+    def showFunctions(self):
+        print("----------------------------------------------------------")
+        for function in self.functions:
+            line = f"Function [{function.id}]: "
+            line += ",".join(f"P{pos}" for pos in function.productsList)
+            print(line)
+        print("----------------------------------------------------------")
+
+
+def show_mitra2012_optimized_final(
+    rpla, cost_calc, opt_calc, mitra2016_calc=None, tara2016_calc=None
+):
+    """Final summary: Mitra2012, Mitra2016, Tara2016, and Optimized."""
+    print("==========================================================")
+    print(
+        f"           Final Calculation (Mitra2012)(Mitra2016)(Tara2016)[Optimized RPLA] of {rpla.esopFileName}"
+    )
+    print("==========================================================")
+    w_alg = 34
+    w_g = 8
+    w_gb = 10
+    w_ai = 24
+    w_q = 14
+    sep = w_alg + w_g + w_gb + w_ai + w_q
+
+    def left(label: str, width: int) -> str:
+        return f"{label:<{width}}"
+
+    def hnum(label: str, width: int) -> str:
+        return f"{label:>{width}}"
+
+    def num(val: int, width: int) -> str:
+        return f"{val:>{width}}"
+
+    print(
+        left("Algorithm", w_alg)
+        + hnum("Gates", w_g)
+        + hnum("Garbages", w_gb)
+        + hnum("Count of Ancilla Input", w_ai)
+        + hnum("Quantum Cost", w_q)
+    )
+    print("-" * sep)
+    print(
+        left("Mitra2012", w_alg)
+        + num(cost_calc.gates, w_g)
+        + num(cost_calc.garbages, w_gb)
+        + num(cost_calc.ancilla_input_count, w_ai)
+        + num(cost_calc.quantumCost, w_q)
+    )
+    if mitra2016_calc is not None:
+        print(
+            left("Mitra2016", w_alg)
+            + num(mitra2016_calc.gates, w_g)
+            + num(mitra2016_calc.garbages, w_gb)
+            + num(mitra2016_calc.ancilla_input_count, w_ai)
+            + num(mitra2016_calc.quantumCost, w_q)
+        )
+    if tara2016_calc is not None:
+        print(
+            left("Tara2016 (Alg. 1–2)", w_alg)
+            + num(tara2016_calc.gates, w_g)
+            + num(tara2016_calc.garbages, w_gb)
+            + num(tara2016_calc.ancilla_input_count, w_ai)
+            + num(tara2016_calc.quantumCost, w_q)
+        )
+    print(
+        left("Optimized (template-driven)", w_alg)
+        + num(opt_calc.gates, w_g)
+        + num(opt_calc.garbages, w_gb)
+        + num(opt_calc.ancilla_input_count, w_ai)
+        + num(opt_calc.quantumCost, w_q)
+    )
