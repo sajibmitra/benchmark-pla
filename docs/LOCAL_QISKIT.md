@@ -2,6 +2,8 @@
 
 This repository is enough to load the MCNC covers and run the four Qiskit cost models. You do not need mit-panel, an IBM Quantum account, or a GPU.
 
+Start with [../Manuscript.pdf](../Manuscript.pdf) and the checklist in [../README.md](../README.md) (Tables IX–XI, misex1 smoke tests, shipped CSVs). This page is the detailed Qiskit field reference.
+
 The manuscript calls the transpiler `qiskit-transpile`. The code calls `qiskit.transpile`.
 
 ## System requirements

@@ -3,7 +3,7 @@
 Calculation code for the EDA hub lives in this repository (`eda_hub`).  
 **mit-panel** hosts FastAPI routes, DB caches, event logging, auth, and bibliometric tools as thin wrappers that `import eda_hub`.
 
-Reviewers reproducing the manuscript should start at [LOCAL_QISKIT.md](LOCAL_QISKIT.md). Qiskit cost analysis needs Python ≥ 3.10 and `pip install -e '.[qiskit]'`. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are optional and are resolved only under `EDA_ROOT`.
+Reviewers reproducing the manuscript should start at [../Manuscript.pdf](../Manuscript.pdf) and the repository [../README.md](../README.md), then [LOCAL_QISKIT.md](LOCAL_QISKIT.md). Qiskit cost analysis needs Python ≥ 3.10 and `pip install -e '.[qiskit]'`. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are optional and are resolved only under `EDA_ROOT`.
 
 | Hub page / route | Package | Notes |
 |---|---|---|
@@ -22,7 +22,7 @@ Reviewers reproducing the manuscript should start at [LOCAL_QISKIT.md](LOCAL_QIS
 | `eda_hub.paths` | `repo_root`, `eda_root`, `benchmarks_root` |
 | `eda_hub.tools` | Resolve `abc` / `yosys` / `openroad` / `ngspice` / `sta` / `xschem` **only under `EDA_ROOT`** |
 | `eda_hub.adapters.events` | No-op standalone; delegates to mit-panel event stores when available |
-| `python/` | Compat shims by working principle (`shared/`, `mitra2012/`, `mitra2016/`, `tara2016/`, `optimized_rpla/`, `qiskit_realization/`); flat stubs keep legacy import names — see `python/README.md` |
+| `Algorithms/` | Compat shims by working principle (`shared/`, `mitra2012/`, `mitra2016/`, `tara2016/`, `optimized_rpla/`, `qiskit_realization/`); flat stubs keep legacy import names — see `Algorithms/README.md` (formerly `python/`) |
 
 ## Ops env
 
