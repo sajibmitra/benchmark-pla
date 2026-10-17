@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "eda-hub"
 version = "0.1.0"
-description = "Page-aligned calculation package for eda.mitverse.com (standalone under Data/eda)"
+description = "Benchmark Analysis — Prefix-Cube Sharing for Reversible PLA Synthesis"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }

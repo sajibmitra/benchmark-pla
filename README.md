@@ -1,6 +1,8 @@
-# calculate-rpla-cost
+# Benchmark Analysis
 
-Python package (`eda_hub`) that scores **benchmark PLA/ESOP circuits** with reversible-logic and Qiskit cost algorithms. External EDA programs (ABC, Yosys, OpenROAD, and others) are **not inside this repository**. They must be installed on the same machine, in the **parent folder of this repository** (the folder that contains `calculate-rpla-cost`).
+**Prefix-Cube Sharing for Reversible PLA Synthesis: Gate-Minimal AND-Plane Mapping Across Quantum and Post-CMOS Technologies**
+
+Python package (`eda_hub`) that scores **benchmark PLA/ESOP circuits** with reversible-logic and Qiskit cost algorithms. External EDA programs (ABC, Yosys, OpenROAD, and others) are **not inside this repository**. They must be installed on the same machine, in the **parent folder of this repository**.
 
 ## Layout
 
@@ -34,7 +36,7 @@ No GPU and no IBM Quantum account are required for the Qiskit cost commands.
 ## Install this package
 
 ```bash
-cd /path/to/calculate-rpla-cost
+cd /path/to/this-repository
 ./scripts/setup_local.sh
 source .venv/bin/activate
 ```
@@ -50,7 +52,7 @@ pip install -e '.[qiskit]'
 
 ## External EDA tools (on the host)
 
-Lookup code lives in `eda_hub/tools.py`. Programs are found **only** under the **parent folder of this repository** (for example, if this repo is `…/eda/calculate-rpla-cost`, tools live under `…/eda/`). System paths such as `/usr/bin` are not used.
+Lookup code lives in `eda_hub/tools.py`. Programs are found **only** under the **parent folder of this repository** (for example, if this repo sits inside an `eda` workspace folder, the tools live in that `eda` folder). System paths such as `/usr/bin` are not used.
 
 | Tool | Typical location under the parent folder | Used for |
 |---|---|---|
