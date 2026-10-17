@@ -3,7 +3,7 @@
 Calculation code for the EDA hub lives in this repository (`eda_hub`).  
 **mit-panel** hosts FastAPI routes, DB caches, event logging, auth, and bibliometric tools as thin wrappers that `import eda_hub`.
 
-Reviewers reproducing the manuscript should start at [../Manuscript.pdf](../Manuscript.pdf) and the repository [../README.md](../README.md), then [LOCAL_QISKIT.md](LOCAL_QISKIT.md). Qiskit cost analysis needs Python ≥ 3.10 and `pip install -e '.[qiskit]'`. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are optional and are resolved only under `EDA_ROOT`.
+Reviewers reproducing the Prefix Cube results should start at [../README.md](../README.md) (paper claims + Tables IX–XI checklist), then [LOCAL_QISKIT.md](LOCAL_QISKIT.md). Qiskit cost analysis needs Python ≥ 3.10 and `pip install -e '.[qiskit]'`. ABC, Yosys, OpenROAD, OpenSTA, ngspice, and xschem are optional and are resolved only under `EDA_ROOT`.
 
 | Hub page / route | Package | Notes |
 |---|---|---|

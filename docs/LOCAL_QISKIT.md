@@ -2,9 +2,9 @@
 
 This repository is enough to load the MCNC covers and run the four Qiskit cost models. You do not need mit-panel, an IBM Quantum account, or a GPU.
 
-Start with [../Manuscript.pdf](../Manuscript.pdf) and the checklist in [../README.md](../README.md) (Tables IX–XI, misex1 smoke tests, shipped CSVs). This page is the detailed Qiskit field reference.
+Start with the paper summary and checklist in [../README.md](../README.md) (Tables IX–XI, misex1 smoke tests, shipped CSVs). This page is the detailed Qiskit field reference.
 
-The manuscript calls the transpiler `qiskit-transpile`. The code calls `qiskit.transpile`.
+The paper calls the transpiler `qiskit-transpile`. The code calls `qiskit.transpile`.
 
 ## System requirements
 
@@ -13,12 +13,12 @@ The manuscript calls the transpiler `qiskit-transpile`. The code calls `qiskit.t
 | OS | macOS or Linux. `scripts/setup_local.sh` is bash |
 | Python | 3.10 or newer (`python3`) |
 | Disk | The benchmark tree under `benchmarks/` |
-| Qiskit | Installed by `pip install -e '.[qiskit]'`, which asks for `qiskit>=1.0,<3`. The manuscript numbers were produced with Qiskit 2.3.1 |
+| Qiskit | Installed by `pip install -e '.[qiskit]'`, which asks for `qiskit>=1.0,<3`. The paper numbers were produced with Qiskit 2.3.1 |
 | CPU | One process per circuit. `--all` waits at most 600 s per name and appends finished rows, so a stopped export can be resumed |
 | Memory | `misex1` (8 inputs, 20 products) is the running example and is small. Circuits past 96 qubits or 8000 gates are not fully transpiled |
 | Not required | GPU, IBM cloud credentials, ABC, Yosys, OpenROAD, OpenSTA, ngspice |
 
-Nangate45, Stanford CNTFET, and VTEAM milliwatts in the manuscript are a technology map of the same netlist. This package does not run those signoff tools.
+Nangate45, Stanford CNTFET, and VTEAM milliwatts in the paper are a technology map of the same netlist. This package does not run those signoff tools.
 
 ## Install
 
@@ -64,7 +64,7 @@ benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.pla
 
 The loader prefers `.esop`, then `.pla`. Do not use the copy under `benchmarks/classic/` when an `All_PLAs` file exists. `build_index()` in `eda_hub.pages.benchmarks.benchmark_index` is the index the CLI uses.
 
-The manuscript reports 20 representative covers:
+The paper reports 20 representative covers:
 
 `alu4`, `apex1`, `apex3`, `apla`, `b2`, `b3`, `chkn`, `cordic`, `dk17`, `duke2`, `e64`, `f51m`, `ibm`, `misex1`, `misex3c`, `pdc`, `rd53`, `ryy6`, `table3`, `table5`.
 
@@ -123,18 +123,18 @@ Transpile settings for the NCT and Prefix Cube studies:
 - Prefix Cube basis `{x, cx, umg, ung, swap}` via `qiskit.transpiler.Target`
 - Full transpile only when qubits ≤ 96 and gates ≤ 8000. `dk17`, `misex1`, and `rd53` are in that set. Larger covers keep the logical circuit
 
-`misex1` after the NCT transpile is `G=134`, `D=46`, `Q=38`. The Prefix Cube ledger reported in the manuscript stays the netlist count `G=45`, AND-plane depth bound `D_∧ ≤ 7`, and `Q=27`. It is not `QuantumCircuit.depth()` of the transpiled UMG circuit.
+`misex1` after the NCT transpile is `G=134`, `D=46`, `Q=38`. The Prefix Cube ledger stays the netlist count `G=45`, AND-plane depth bound `D_∧ ≤ 7`, and `Q=27`. It is not `QuantumCircuit.depth()` of the transpiled UMG circuit.
 
-## Manuscript tables versus `quantum_cost`
+## Paper tables versus `quantum_cost`
 
 Use the package field that matches the column.
 
 - The CX/CCX tally is `standard_quantum` `quantum_cost` (CNOT + Toffoli, weight 1).
-- The NCT macro cost in the manuscript is `n_CX + 5 n_CCX`. Read `cnot_gates` and `toffoli_gates` from `standard_quantum` `gate_mix` and apply that weight. Do not read it from `quantum_cost`.
+- The NCT macro cost in the paper is `n_CX + 5 n_CCX`. Read `cnot_gates` and `toffoli_gates` from `standard_quantum` `gate_mix` and apply that weight. Do not read it from `quantum_cost`.
 - Prefix Cube macro cost is the `umg_ung` formula: one UMG or UNG has cost 5, one CNOT has cost 1.
-- Gaur FOM and Zhou `C` are what `gaur2024` and `zhou2026` store in `quantum_cost`. The realization table in the manuscript does not put those quantities in the QC column.
+- Gaur FOM and Zhou `C` are what `gaur2024` and `zhou2026` store in `quantum_cost`. The realization table in the paper does not put those quantities in the QC column.
 
-The manuscript realization columns apply two further rules on the NCT cascade from `ExistingCalculation`:
+The paper realization columns apply two further rules on the NCT cascade from `ExistingCalculation`:
 
 - Gaur QMA3 keeps the CNOT and Toffoli counts. Garbage and ancilla each drop by `n+1`, where `n` is `RPLA.totalLiterals`. Gate count and macro QC stay with NCT.
 - Zhou Algorithm 1 is `account_eddqc` on the logical CX/CCX circuit from `build_esop_cnot_toffoli_circuit`, not the microsecond `C`. Each selected switch, SWAP, or teleportation adds one gate of cost 1 and adds no rail. Garbage and ancilla stay with NCT.

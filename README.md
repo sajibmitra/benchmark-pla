@@ -1,31 +1,48 @@
 # calculate-rpla-cost (`eda_hub`)
 
-Standalone calculation package for **Prefix-Cube Sharing for Reversible PLA Synthesis** ([Manuscript.pdf](Manuscript.pdf)) and for [eda.mitverse.com](https://eda.mitverse.com). A reviewer can reproduce the MCNC load, library RPLA costs (Table IX), and Qiskit transpile ledger (Table X) on a laptop or this Ubuntu host. Step-by-step Qiskit detail: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
+Standalone calculation package for **Prefix-Cube Sharing for Reversible PLA Synthesis: Gate-Minimal AND-Plane Mapping Across Quantum and Post-CMOS Technologies** (S. K. Mitra and H. Md. Hasan Babu) and for [eda.mitverse.com](https://eda.mitverse.com). A reviewer can reproduce the MCNC load, library RPLA costs (Table IX), and Qiskit transpile ledger (Table X) on a laptop or this Ubuntu host. Step-by-step Qiskit detail: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
+
+## Paper claims (clarification)
+
+Prefix Cube inserts a fixed ESOP cover into a prefix-sharing tree before any device map. Each distinct multi-literal prefix is one UMG or UNG; the XOR plane uses the published Feynman construction. One netlist is then scored as Nangate45 PTL, Stanford CNTFET/VTEAM, and a Qiskit computational-basis embedding (not a quantum speedup).
+
+Reported on **20 representative MCNC PLA circuits** (vs product-list RPLA / vs Qiskit-transpiled NCT ESOP cascade):
+
+| Quantity | Claimed mean change |
+|---|---|
+| Reversible GA / GB / AI / macro QC vs product-list RPLA | −53.4% / −62.9% / −62.3% / −53.2% |
+| Qiskit gate count G (NCT cascade → Prefix Cube) | 6492.2 → 1154.0 (−82.2%) |
+| AND-plane depth | 907.5 → bound 22.3 (−97.5%) |
+| Qubit count Q | 349.6 → 785.6 (+124.7%; shared prefixes occupy rails) |
+| Median synthesis runtime | 9.4 ms |
+
+Resource names used in the results: **GA** = reversible gate count of netlist *N*; **GB** / **AI** = garbage / ancilla; **QC** = macro quantum cost `5 n_AND + n_XOR` on *N*; **G**, **D**, **Q** = Qiskit gate count, depth, and qubit width after the stated basis. UMG/UNG cells have `qc = 5`.
+
+**Running example — MCNC `misex1`** (8 inputs, 7 outputs, 20 products): shared prefixes include `b′c` (8 cubes) and `bc′` (5 cubes). After NCT `qiskit.transpile`: **G=134, D=46, Q=38**. Prefix Cube netlist ledger: **G=45, D∧ ≤ 7, Q=27, QC=113**. Library Table IX on this cover: NCT **GA/GB/AI/QC = 91/66/57/319**; Prefix Cube **45/20/19/113**.
+
+Related prior-art PDFs shipped under `papers/`: `Gaur2024.pdf`, `Zhou2026.pdf`.
 
 ## Verified on this host (Ubuntu)
-
-Checked on the Data/eda Ubuntu system after syncing from macOS:
 
 | Item | Value on this host |
 |---|---|
 | OS | Ubuntu Linux 6.8 (aarch64, Neoverse-N1, 2 CPUs) |
-| Repo path | `/mnt/HC_Volume_105482360/Data/eda/calculate-rpla-cost` |
 | Python | 3.12.3 |
-| Qiskit in `.venv` | 2.5.2 (`qiskit>=1.0,<3`; manuscript numbers used 2.3.1) |
+| Qiskit in `.venv` | 2.5.2 (`qiskit>=1.0,<3`; paper numbers used Qiskit 2.3.1) |
 | Benchmarks | `benchmarks/mcnc/Combinational/pla/All_PLAs/` present (189 files) |
 | Smoke tests | `eda-qiskit-analysis --circuit misex1` and `rd53` succeed |
 | Table X spot-check | `misex1` / `rd53` / `dk17` match `scripts/qiskit-transpile-rep20.csv` |
 
-Optional EDA binaries (ABC, Yosys, OpenROAD, ngspice, …) live under `$EDA_ROOT` (here: `/mnt/HC_Volume_105482360/Data/eda`). **They are not required** for manuscript Table IX / Table X Qiskit reproduction.
+Optional EDA binaries (ABC, Yosys, OpenROAD, ngspice, …) live under `$EDA_ROOT` (parent of this repo). **They are not required** for Table IX / Table X Qiskit reproduction.
 
 ## Quick start (reviewer)
 
 ```bash
-cd /mnt/HC_Volume_105482360/Data/eda/calculate-rpla-cost   # or your clone
+cd /path/to/calculate-rpla-cost
 ./scripts/setup_local.sh
 source .venv/bin/activate
 
-# 1) Running example from the manuscript (misex1)
+# 1) Running example (misex1)
 eda-qiskit-analysis --circuit misex1
 
 # 2) Another full-transpile cover (Status = full in Table X)
@@ -35,7 +52,7 @@ eda-qiskit-analysis --circuit rd53
 eda-qiskit-analysis --all --csv /tmp/qiskit-all-plas.csv
 ```
 
-Expected `misex1` CLI summary (CX/CCX tally and package `quantum_cost` fields — see mapping below):
+Expected `misex1` CLI summary (package `quantum_cost` fields — see mapping below):
 
 ```text
 circuit: misex1  source: misex1.esop
@@ -51,11 +68,9 @@ If the console script is missing from `PATH`:
 python scripts/run_qiskit_analysis.py --circuit misex1
 ```
 
-## Manuscript.pdf → what to run
+## Results tables → what to run
 
-Paper: [Manuscript.pdf](Manuscript.pdf) (*Prefix-Cube Sharing for Reversible PLA Synthesis…*). Related prior art PDFs: `papers/Gaur2024.pdf`, `papers/Zhou2026.pdf`.
-
-| Manuscript artifact | How to reproduce / check | Package entry |
+| Paper artifact | How to reproduce / check | Package entry |
 |---|---|---|
 | **20 representative covers** | Names listed below; files under `benchmarks/mcnc/Combinational/pla/All_PLAs/` | `build_index()` / CLI `--circuit` |
 | **Table IX** (library GA, GB, AI, QC before transpile) | `ExistingCalculation` = NCT cascade; `OptimizedRPLACalculation` = Prefix Cube | `eda_hub.pages.benchmarks` (also `scripts/batch_all_plas_costs.py`, shipped `scripts/all_plas_table9_costs.csv`) |
@@ -92,7 +107,7 @@ snap = SimpleNamespace(
 opt = OptimizedRPLACalculation(snap, rpla.totalLiterals, quiet=True)
 opt.andPlane(); opt.xorPlane()
 print("NCT", ex.gates, ex.garbages, ex.ancilla_input_count, ex.quantumCost)
-# -> 91 66 57 319   (Manuscript Table IX)
+# -> 91 66 57 319   (Table IX)
 print("PrefixCube", opt.gates, opt.garbages, opt.ancilla_input_count, opt.quantumCost)
 # -> 45 20 19 113
 ```
@@ -109,18 +124,18 @@ eda-qiskit-analysis --circuit misex1
 
 Shipped reference for all 20: `scripts/qiskit-transpile-rep20.csv` (columns `std_gates`, `std_depth`, `std_qubits`, …). On this host, live `misex1` / `rd53` / `dk17` match that CSV.
 
-**Do not** read Prefix Cube Table X G/D/Q from `umg_ung.gates` after transpile — that field is the CX/UMG circuit tally. Use the Optimized / Prefix Cube **netlist** counters (and the manuscript’s D∧ ≤ n−1 bound).
+**Do not** read Prefix Cube Table X G/D/Q from `umg_ung.gates` after transpile — that field is the CX/UMG circuit tally. Use the Optimized / Prefix Cube **netlist** counters (and D∧ ≤ n−1).
 
-### Package `quantum_cost` vs manuscript columns
+### Package `quantum_cost` vs paper columns
 
-| CLI / API key | Package `quantum_cost` | Manuscript use |
+| CLI / API key | Package `quantum_cost` | Paper use |
 |---|---|---|
 | `standard_quantum` | n_CX + n_CCX (weight 1) | Table XI tally; **not** Table IX QC |
 | `umg_ung` | n_CX + 5×(UMG+UNG) on Qiskit circuit | Prefix Cube **macro** style; netlist QC is Optimized `quantumCost` |
 | `gaur2024` | FOM = width × Toffoli depth | Extra score; not the Table IX QC column |
 | `zhou2026` | Zhou `C` (µs) | Extra score; Algorithm 1 gate ledger is separate |
 
-NCT macro cost in the paper is `n_CX + 5 n_CCX`. Read `cnot_gates` and `toffoli_gates` from `standard_quantum.gate_mix`. Transpile settings: `optimization_level=2`, `seed_transpiler=42`, NCT basis `{x,cx,ccx,swap}`, Prefix Cube basis `{x,cx,umg,ung,swap}`.
+NCT macro cost in the paper is `n_CX + 5 n_CCX`. Read `cnot_gates` and `toffoli_gates` from `standard_quantum.gate_mix`. Transpile settings: `optimization_level=2`, `seed_transpiler=42`, NCT basis `{x,cx,ccx,swap}`, Prefix Cube basis `{x,cx,umg,ung,swap}`. The paper’s `qiskit-transpile` is `qiskit.transpile` in code.
 
 Full field notes: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
 
@@ -130,14 +145,13 @@ Full field notes: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
 |---|---|
 | OS | macOS or Linux (bash setup script) |
 | Python | 3.10 or newer |
-| Qiskit | `qiskit>=1.0,<3` (manuscript: 2.3.1; this host: 2.5.2) |
+| Qiskit | `qiskit>=1.0,<3` (paper: 2.3.1; this host: 2.5.2) |
 | Hardware | No GPU, no IBM Quantum account. `misex1` / `rd53` finish in seconds. Full MCNC export is CPU time; 600 s timeout per circuit; CSV is resumable |
 | EDA binaries | Not required for Qiskit / Table IX–XI. ABC, Yosys, OpenROAD, OpenSTA, ngspice, xschem resolve only under `EDA_ROOT` |
 
 ## Layout
 
 ```text
-Manuscript.pdf      # paper under review
 eda_hub/            # canonical calculation package
   paths.py          # repo_root, eda_root, benchmarks_root
   tools.py          # resolve_* only under EDA_ROOT
@@ -184,7 +198,7 @@ If `benchmarks/` is empty: `./scripts/download_data.sh` (Google Drive via `gdown
 
 ## Recommended reviewer checklist
 
-1. Open [Manuscript.pdf](Manuscript.pdf); note Tables IX–XI and the misex1 example (G=134 / D=46 / Q=38 vs Prefix Cube G=45 / D∧ ≤ 7 / Q=27).
+1. Read **Paper claims** above; note Tables IX–XI and the misex1 example (G=134 / D=46 / Q=38 vs Prefix Cube G=45 / D∧ ≤ 7 / Q=27).
 2. `./scripts/setup_local.sh` then `source .venv/bin/activate`.
 3. `eda-qiskit-analysis --circuit misex1` — confirm `standard_quantum` gates/depth/qubits 134/46/38 and tally `quantum_cost=90`.
 4. Run the short Python snippet above — confirm NCT 91/66/57/319 and Prefix Cube 45/20/19/113.

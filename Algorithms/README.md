@@ -1,6 +1,6 @@
 # `Algorithms/` — compatibility shims by working principle
 
-Reviewers should follow the repository [README](../README.md) and [docs/LOCAL_QISKIT.md](../docs/LOCAL_QISKIT.md), starting from [Manuscript.pdf](../Manuscript.pdf). New runs should import `eda_hub`, not these shims.
+Reviewers should follow the repository [README](../README.md) (paper claims and Tables IX–XI) and [docs/LOCAL_QISKIT.md](../docs/LOCAL_QISKIT.md). New runs should import `eda_hub`, not these shims.
 
 Canonical calculation code lives in **`eda_hub`**. This tree (formerly `python/`) keeps legacy import names and groups them by working principle.
 
