@@ -1,21 +1,20 @@
 # calculate-rpla-cost
 
-Python package (`eda_hub`) that scores **benchmark PLA/ESOP circuits** with several reversible-logic and Qiskit cost algorithms. External EDA binaries (ABC, Yosys, …) are **not shipped here** — this repo only resolves them under `$EDA_ROOT` on the host.
+Python package (`eda_hub`) that scores **benchmark PLA/ESOP circuits** with reversible-logic and Qiskit cost algorithms. External EDA programs (ABC, Yosys, OpenROAD, and others) are **not inside this repository**. They must be installed on the same machine, in the **parent folder of this repository** (the folder that contains `calculate-rpla-cost`).
 
 ## Layout
 
 | Path | Role |
 |---|---|
 | `benchmarks/` | Circuit data (`mcnc`, `classic`, `epfl`) |
-| `eda_hub/` | Algorithm and tool-resolution code |
+| `eda_hub/` | Algorithm code and tool lookup |
 | `Algorithms/` | Optional legacy import shims (same logic as `eda_hub`) |
 | `scripts/` | Setup and batch runners |
-| `papers/` | Related PDFs (Gaur2024, Zhou2026) |
 
-Default benchmark category for MCNC PLAs:
+Default MCNC PLA/ESOP files:
 
 ```text
-benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.esop   # preferred
+benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.esop   # preferred when present
 benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.pla
 ```
 
@@ -24,13 +23,13 @@ benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.pla
 | Item | Need |
 |---|---|
 | OS | Linux or macOS |
-| Python | 3.10+ |
-| Disk | This repo + `benchmarks/` (run `./scripts/download_data.sh` if empty) |
-| For library RPLA costs (Mitra / Tara / Optimized) | Python only |
-| For Qiskit methodologies | Python + Qiskit (`pip install -e '.[qiskit]'`) |
-| For SOP→ESOP / CMOS / PTL / post-CMOS flows | Host EDA tools under `$EDA_ROOT` (see below) |
+| Python | 3.10 or newer |
+| Benchmarks | Folder `benchmarks/` in this repository (run `./scripts/download_data.sh` if it is empty) |
+| Library RPLA costs (Mitra / Tara / Optimized) | Python only |
+| Qiskit methodologies | Python and Qiskit (`pip install -e '.[qiskit]'`) |
+| SOP→ESOP, CMOS, PTL, post-CMOS flows | Host EDA programs in the parent folder of this repository (see below) |
 
-No GPU and no IBM Quantum account are required for the Qiskit cost CLI.
+No GPU and no IBM Quantum account are required for the Qiskit cost commands.
 
 ## Install this package
 
@@ -49,29 +48,20 @@ pip install -U pip setuptools wheel
 pip install -e '.[qiskit]'
 ```
 
-Useful env vars:
-
-| Variable | Meaning |
-|---|---|
-| `EDA_ROOT` | Host EDA tree (default: parent of this repo) |
-| `EDA_BENCHMARKS_ROOT` | Override benchmark root |
-| `EDA_CALCULATE_RPLA_COST_ROOT` | This repo, if imported from elsewhere |
-| `EDA_ABC` / `EDA_YOSYS` / `EDA_OPENROAD` / `EDA_NGSPICE` / `EDA_STA` / `EDA_XSCHEM` | Absolute paths; accepted only if under `$EDA_ROOT` |
-
 ## External EDA tools (on the host)
 
-Declared in `eda_hub/tools.py`. Lookup is **only** under `$EDA_ROOT` (no `/usr` fallback). On a typical install, `$EDA_ROOT` is the parent of this repo (e.g. `…/Data/eda`) and binaries appear in `$EDA_ROOT/bin/` or the tool build trees.
+Lookup code lives in `eda_hub/tools.py`. Programs are found **only** under the **parent folder of this repository** (for example, if this repo is `…/eda/calculate-rpla-cost`, tools live under `…/eda/`). System paths such as `/usr/bin` are not used.
 
-| Tool | Resolved by | Used for |
+| Tool | Typical location under the parent folder | Used for |
 |---|---|---|
-| **ABC** | `resolve_abc_executable()` | SOP/ESOP front end (`&exorcism`), OpenROAD helper flows |
-| **Yosys** | `resolve_yosys_executable()` | Netlist synthesis / map |
-| **OpenROAD** | `resolve_openroad_executable()` | Place / route style metrics |
-| **OpenSTA** (`sta`) | `resolve_sta_executable()` | Timing |
-| **ngspice** | `resolve_ngspice_executable()` | PTL / CNTFET / memristor cell sim |
-| **xschem** | `resolve_xschem_executable()` | Optional schematic capture |
+| **ABC** | `bin/abc` or `abc/abc` | SOP/ESOP front end (`&exorcism`), helper flows |
+| **Yosys** | `bin/yosys` or `yosys/yosys` | Netlist synthesis / map |
+| **OpenROAD** | `bin/openroad` or `OpenROAD/…/openroad` | Place / route style metrics |
+| **OpenSTA** (`sta`) | `bin/sta` or `OpenSTA/…/sta` | Timing |
+| **ngspice** | `bin/ngspice` or `ngspice/…/ngspice` | PTL / CNTFET / memristor cell simulation |
+| **xschem** | `bin/xschem` or `xschem/…/xschem` | Optional schematic capture |
 
-Check that tools resolve from this repo:
+Check that tools are visible from this repository:
 
 ```bash
 source .venv/bin/activate
@@ -82,7 +72,7 @@ from eda_hub.tools import (
     resolve_openroad_executable, resolve_ngspice_executable,
     resolve_sta_executable, resolve_xschem_executable,
 )
-print("EDA_ROOT", eda_root())
+print("Host EDA folder (parent of this repo):", eda_root())
 for name, fn in [
     ("abc", resolve_abc_executable),
     ("yosys", resolve_yosys_executable),
@@ -100,7 +90,7 @@ PY
 
 ### Installing the host tools
 
-Build or install each tool into `$EDA_ROOT` (sibling of this repo), then symlink or place executables under `$EDA_ROOT/bin/` if needed. Upstream projects:
+Build or install each program into the **parent folder of this repository**, then place or symlink executables under that folder’s `bin/` directory if needed. Upstream projects:
 
 | Tool | Upstream |
 |---|---|
@@ -111,22 +101,22 @@ Build or install each tool into `$EDA_ROOT` (sibling of this repo), then symlink
 | ngspice | https://ngspice.sourceforge.io / https://github.com/imr/ngspice |
 | xschem | https://github.com/StefanSchippers/xschem |
 
-Exact build flags depend on the host OS; follow each project’s install docs and keep the resulting binaries under `$EDA_ROOT`. EXORCISM-4 is used via ABC’s `&exorcism` (see `third_party/exorcism` for reference sources only).
+Follow each project’s own install docs. Keep the resulting binaries inside the parent folder of this repository. EXORCISM-4 is used through ABC’s `&exorcism` command (`third_party/exorcism` holds reference sources only).
 
 ## Algorithms and how to run them
 
 ### 1. Library RPLA costs — Mitra2016 / Tara2016 / Optimized (Prefix Cube)
 
-Python-only. Metrics: gates (GA), garbage (GB), ancilla (AI), quantum cost (QC).
+Python only. Metrics: gates (GA), garbage (GB), ancilla (AI), quantum cost (QC).
 
-**Batch over named covers:**
+**Batch:**
 
 ```bash
 source .venv/bin/activate
 python scripts/batch_all_plas_costs.py
 ```
 
-**Single circuit (API):**
+**Single circuit:**
 
 ```python
 import copy
@@ -136,12 +126,10 @@ from eda_hub.pages.benchmarks.existing_calculation import ExistingCalculation
 from eda_hub.pages.benchmarks.mitra2016_calculation import Mitra2016Calculation
 from eda_hub.pages.benchmarks.tara2016_calculation import Tara2016Calculation
 from eda_hub.pages.benchmarks.optimized_rpla_calculation import OptimizedRPLACalculation
-from eda_hub.paths import benchmarks_root
 
-path = benchmarks_root() / "mcnc/Combinational/pla/All_PLAs/misex1.esop"
+path = "benchmarks/mcnc/Combinational/pla/All_PLAs/misex1.esop"
 rpla = load_rpla_from_esop_file(path)
 
-# Existing NCT cascade
 ex = ExistingCalculation(rpla, quiet=True)
 ex.xorPlane(); ex.andPlane()
 print("Existing", ex.gates, ex.garbages, ex.ancilla_input_count, ex.quantumCost)
@@ -169,49 +157,49 @@ Code: `eda_hub/pages/benchmarks/`.
 
 ### 2. Qiskit methodologies — standard / UMG-UNG / Gaur2024 / Zhou2026
 
-Needs Qiskit. Runs on an ESOP/PLA file or an indexed benchmark name.
+Needs Qiskit.
 
 ```bash
 source .venv/bin/activate
 
-# one circuit by name (suite/category defaults: mcnc + Combinational/pla/All_PLAs)
+# one circuit by name (defaults: suite mcnc, category Combinational/pla/All_PLAs)
 eda-qiskit-analysis --circuit misex1
 
 # any local file
 eda-qiskit-analysis --file benchmarks/mcnc/Combinational/pla/All_PLAs/rd53.esop
 
-# whole category → CSV (resumable; 600 s timeout per circuit)
+# whole category to CSV (resumable; 600 s timeout per circuit)
 eda-qiskit-analysis --all --csv /tmp/qiskit-all-plas.csv
 ```
 
-If the entry point is missing:
+If the command is not on your PATH:
 
 ```bash
 python scripts/run_qiskit_analysis.py --circuit misex1
 ```
 
-| Key | Module | Cost meaning |
-|---|---|---|
-| `standard_quantum` | `eda_hub.pages.qiskit.standard_quantum` | CX + CCX count (weight 1) after transpile |
-| `umg_ung` | `…umg_ung` | CX + 5×(UMG+UNG) |
-| `gaur2024` | `…gaur2024` | FOM = qubit width × Toffoli depth |
-| `zhou2026` | `…zhou2026` | Zhou `C` (µs) / LNN routing model |
+| Key | What it measures |
+|---|---|
+| `standard_quantum` | CX + CCX count (weight 1) after transpile |
+| `umg_ung` | CX + 5×(UMG + UNG) |
+| `gaur2024` | FOM = qubit width × Toffoli depth |
+| `zhou2026` | Zhou cost model `C` (microseconds) / LNN routing |
 
-Transpile (when circuit ≤ 96 qubits and ≤ 8000 gates): `optimization_level=2`, `seed_transpiler=42`.
+Transpile (when the circuit has at most 96 qubits and 8000 gates): optimization level 2, transpiler seed 42. Code: `eda_hub/pages/qiskit/`.
 
-### 3. SOP → ESOP (needs ABC / Yosys)
+### 3. SOP → ESOP (needs ABC and/or Yosys)
 
-```python
-# used internally by benchmark conversion paths
-from eda_hub.tools import resolve_abc_executable, resolve_yosys_executable
-print(resolve_abc_executable(), resolve_yosys_executable())
+```bash
+source .venv/bin/activate
+python scripts/convert_to_esop.py
+# also: scripts/generate_esop_accurate.py, scripts/batch_convert_arithmetic_smart.py
 ```
 
-Scripts: `scripts/convert_to_esop.py`, `scripts/generate_esop_accurate.py`, `scripts/batch_convert_arithmetic_smart.py`. Code: `eda_hub/pages/benchmarks/sop_esop.py`.
+Code: `eda_hub/pages/benchmarks/sop_esop.py`.
 
 ### 4. CMOS / PTL / post-CMOS (need Yosys, OpenROAD, ngspice, …)
 
-Python under `eda_hub/pages/cmos_ptl_tgl/` and `eda_hub/pages/post_cmos/` calls the resolvers above. Typical uses: Yosys synthesis, OpenROAD metrics, ngspice cell simulation. Run from the FastAPI host (mit-panel) or import the modules after tools resolve.
+Code under `eda_hub/pages/cmos_ptl_tgl/` and `eda_hub/pages/post_cmos/`. Import those modules after the host tools above are installed and resolve correctly.
 
 ## License
 
