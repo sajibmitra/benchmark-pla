@@ -1,183 +1,38 @@
-# calculate-rpla-cost (`eda_hub`)
+# calculate-rpla-cost
 
-Standalone calculation package for **Prefix-Cube Sharing for Reversible PLA Synthesis: Gate-Minimal AND-Plane Mapping Across Quantum and Post-CMOS Technologies** (S. K. Mitra and H. Md. Hasan Babu) and for [eda.mitverse.com](https://eda.mitverse.com). A reviewer can reproduce the MCNC load, library RPLA costs (Table IX), and Qiskit transpile ledger (Table X) on a laptop or this Ubuntu host. Step-by-step Qiskit detail: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
-
-## Paper claims (clarification)
-
-Prefix Cube inserts a fixed ESOP cover into a prefix-sharing tree before any device map. Each distinct multi-literal prefix is one UMG or UNG; the XOR plane uses the published Feynman construction. One netlist is then scored as Nangate45 PTL, Stanford CNTFET/VTEAM, and a Qiskit computational-basis embedding (not a quantum speedup).
-
-Reported on **20 representative MCNC PLA circuits** (vs product-list RPLA / vs Qiskit-transpiled NCT ESOP cascade):
-
-| Quantity | Claimed mean change |
-|---|---|
-| Reversible GA / GB / AI / macro QC vs product-list RPLA | −53.4% / −62.9% / −62.3% / −53.2% |
-| Qiskit gate count G (NCT cascade → Prefix Cube) | 6492.2 → 1154.0 (−82.2%) |
-| AND-plane depth | 907.5 → bound 22.3 (−97.5%) |
-| Qubit count Q | 349.6 → 785.6 (+124.7%; shared prefixes occupy rails) |
-| Median synthesis runtime | 9.4 ms |
-
-Resource names used in the results: **GA** = reversible gate count of netlist *N*; **GB** / **AI** = garbage / ancilla; **QC** = macro quantum cost `5 n_AND + n_XOR` on *N*; **G**, **D**, **Q** = Qiskit gate count, depth, and qubit width after the stated basis. UMG/UNG cells have `qc = 5`.
-
-**Running example — MCNC `misex1`** (8 inputs, 7 outputs, 20 products): shared prefixes include `b′c` (8 cubes) and `bc′` (5 cubes). After NCT `qiskit.transpile`: **G=134, D=46, Q=38**. Prefix Cube netlist ledger: **G=45, D∧ ≤ 7, Q=27, QC=113**. Library Table IX on this cover: NCT **GA/GB/AI/QC = 91/66/57/319**; Prefix Cube **45/20/19/113**.
-
-Related prior-art PDFs shipped under `papers/`: `Gaur2024.pdf`, `Zhou2026.pdf`.
-
-## Verified on this host (Ubuntu)
-
-| Item | Value on this host |
-|---|---|
-| OS | Ubuntu Linux 6.8 (aarch64, Neoverse-N1, 2 CPUs) |
-| Python | 3.12.3 |
-| Qiskit in `.venv` | 2.5.2 (`qiskit>=1.0,<3`; paper numbers used Qiskit 2.3.1) |
-| Benchmarks | `benchmarks/mcnc/Combinational/pla/All_PLAs/` present (189 files) |
-| Smoke tests | `eda-qiskit-analysis --circuit misex1` and `rd53` succeed |
-| Table X spot-check | `misex1` / `rd53` / `dk17` match `scripts/qiskit-transpile-rep20.csv` |
-
-Optional EDA binaries (ABC, Yosys, OpenROAD, ngspice, …) live under `$EDA_ROOT` (parent of this repo). **They are not required** for Table IX / Table X Qiskit reproduction.
-
-## Quick start (reviewer)
-
-```bash
-cd /path/to/calculate-rpla-cost
-./scripts/setup_local.sh
-source .venv/bin/activate
-
-# 1) Running example (misex1)
-eda-qiskit-analysis --circuit misex1
-
-# 2) Another full-transpile cover (Status = full in Table X)
-eda-qiskit-analysis --circuit rd53
-
-# 3) Optional: full All_PLAs export (resumable CSV)
-eda-qiskit-analysis --all --csv /tmp/qiskit-all-plas.csv
-```
-
-Expected `misex1` CLI summary (package `quantum_cost` fields — see mapping below):
-
-```text
-circuit: misex1  source: misex1.esop
-  standard_quantum   quantum_cost=90
-  umg_ung            quantum_cost=318
-  gaur2024           quantum_cost=1558
-  zhou2026           quantum_cost=266
-```
-
-If the console script is missing from `PATH`:
-
-```bash
-python scripts/run_qiskit_analysis.py --circuit misex1
-```
-
-## Results tables → what to run
-
-| Paper artifact | How to reproduce / check | Package entry |
-|---|---|---|
-| **20 representative covers** | Names listed below; files under `benchmarks/mcnc/Combinational/pla/All_PLAs/` | `build_index()` / CLI `--circuit` |
-| **Table IX** (library GA, GB, AI, QC before transpile) | `ExistingCalculation` = NCT cascade; `OptimizedRPLACalculation` = Prefix Cube | `eda_hub.pages.benchmarks` (also `scripts/batch_all_plas_costs.py`, shipped `scripts/all_plas_table9_costs.csv`) |
-| **Table X** (qiskit-transpile G, D, Q) | NCT row from `standard_quantum` after `qiskit.transpile`; Prefix Cube G / D∧ / Q stay **netlist** counts (not UMG circuit `.depth()`) | `eda-qiskit-analysis`; shipped `scripts/qiskit-transpile-rep20.csv` |
-| **Table XI** (CX/CCX tally & macro cost) | Tally = `standard_quantum.quantum_cost` (= n_CX + n_CCX). Macro NCT QC = `n_CX + 5 n_CCX` from `gate_mix` | same CLI / API |
-| **misex1 running example** | NCT after transpile: G=134, D=46, Q=38. Prefix Cube netlist: G=45, D∧ ≤ 7, Q=27, QC=113 | CLI + library calculators below |
-| Nangate45 / CNTFET / VTEAM mW | Technology map of the same netlist; needs `$EDA_ROOT` tools + hub DB metrics — **out of scope for laptop Qiskit-only review** | optional `eda_hub.pages.cmos_ptl_tgl` / `post_cmos` |
-
-### 20 representative circuits (Table IX / X)
-
-`alu4`, `apex1`, `apex3`, `apla`, `b2`, `b3`, `chkn`, `cordic`, `dk17`, `duke2`, `e64`, `f51m`, `ibm`, `misex1`, `misex3c`, `pdc`, `rd53`, `ryy6`, `table3`, `table5`.
-
-`chkn`, `dk17`, `f51m`, `ibm`, `misex3c`, and `ryy6` are `.pla` only. The others prefer `.esop`. Full transpile (Status=`full`) runs only when qubits ≤ 96 and gates ≤ 8000 — in the rep-20 set that includes **`dk17`, `misex1`, `rd53`**.
-
-### Check Table IX library numbers (misex1)
-
-```python
-import copy
-from types import SimpleNamespace
-from eda_hub.pages.qiskit.comparison import load_rpla_from_esop_file
-from eda_hub.pages.benchmarks.existing_calculation import ExistingCalculation
-from eda_hub.pages.benchmarks.optimized_rpla_calculation import OptimizedRPLACalculation
-from eda_hub.paths import benchmarks_root
-
-rpla = load_rpla_from_esop_file(
-    benchmarks_root() / "mcnc/Combinational/pla/All_PLAs/misex1.esop"
-)
-ex = ExistingCalculation(rpla, quiet=True)
-ex.xorPlane(); ex.andPlane()
-snap = SimpleNamespace(
-    functions=copy.deepcopy(rpla.functions),
-    products=copy.deepcopy(rpla.products),
-)
-opt = OptimizedRPLACalculation(snap, rpla.totalLiterals, quiet=True)
-opt.andPlane(); opt.xorPlane()
-print("NCT", ex.gates, ex.garbages, ex.ancilla_input_count, ex.quantumCost)
-# -> 91 66 57 319   (Table IX)
-print("PrefixCube", opt.gates, opt.garbages, opt.ancilla_input_count, opt.quantumCost)
-# -> 45 20 19 113
-```
-
-Batch / CSV: `python scripts/batch_all_plas_costs.py` (writes Mitra / Tara / Optimized columns). A prior export is `scripts/all_plas_table9_costs.csv`.
-
-### Check Table X transpile ledger
-
-```bash
-eda-qiskit-analysis --circuit misex1
-# NCT G,D,Q live in realizations['standard_quantum']:
-#   gates=134, qiskit_circuit_depth=46, qiskit_num_qubits=38
-```
-
-Shipped reference for all 20: `scripts/qiskit-transpile-rep20.csv` (columns `std_gates`, `std_depth`, `std_qubits`, …). On this host, live `misex1` / `rd53` / `dk17` match that CSV.
-
-**Do not** read Prefix Cube Table X G/D/Q from `umg_ung.gates` after transpile — that field is the CX/UMG circuit tally. Use the Optimized / Prefix Cube **netlist** counters (and D∧ ≤ n−1).
-
-### Package `quantum_cost` vs paper columns
-
-| CLI / API key | Package `quantum_cost` | Paper use |
-|---|---|---|
-| `standard_quantum` | n_CX + n_CCX (weight 1) | Table XI tally; **not** Table IX QC |
-| `umg_ung` | n_CX + 5×(UMG+UNG) on Qiskit circuit | Prefix Cube **macro** style; netlist QC is Optimized `quantumCost` |
-| `gaur2024` | FOM = width × Toffoli depth | Extra score; not the Table IX QC column |
-| `zhou2026` | Zhou `C` (µs) | Extra score; Algorithm 1 gate ledger is separate |
-
-NCT macro cost in the paper is `n_CX + 5 n_CCX`. Read `cnot_gates` and `toffoli_gates` from `standard_quantum.gate_mix`. Transpile settings: `optimization_level=2`, `seed_transpiler=42`, NCT basis `{x,cx,ccx,swap}`, Prefix Cube basis `{x,cx,umg,ung,swap}`. The paper’s `qiskit-transpile` is `qiskit.transpile` in code.
-
-Full field notes: [docs/LOCAL_QISKIT.md](docs/LOCAL_QISKIT.md).
-
-## System requirements
-
-| Item | Requirement |
-|---|---|
-| OS | macOS or Linux (bash setup script) |
-| Python | 3.10 or newer |
-| Qiskit | `qiskit>=1.0,<3` (paper: 2.3.1; this host: 2.5.2) |
-| Hardware | No GPU, no IBM Quantum account. `misex1` / `rd53` finish in seconds. Full MCNC export is CPU time; 600 s timeout per circuit; CSV is resumable |
-| EDA binaries | Not required for Qiskit / Table IX–XI. ABC, Yosys, OpenROAD, OpenSTA, ngspice, xschem resolve only under `EDA_ROOT` |
+Python package (`eda_hub`) that scores **benchmark PLA/ESOP circuits** with several reversible-logic and Qiskit cost algorithms. External EDA binaries (ABC, Yosys, …) are **not shipped here** — this repo only resolves them under `$EDA_ROOT` on the host.
 
 ## Layout
 
+| Path | Role |
+|---|---|
+| `benchmarks/` | Circuit data (`mcnc`, `classic`, `epfl`) |
+| `eda_hub/` | Algorithm and tool-resolution code |
+| `Algorithms/` | Optional legacy import shims (same logic as `eda_hub`) |
+| `scripts/` | Setup and batch runners |
+| `papers/` | Related PDFs (Gaur2024, Zhou2026) |
+
+Default benchmark category for MCNC PLAs:
+
 ```text
-eda_hub/            # canonical calculation package
-  paths.py          # repo_root, eda_root, benchmarks_root
-  tools.py          # resolve_* only under EDA_ROOT
-  shared/           # RPLA core
-  pages/
-    benchmarks/     # library Mitra / Tara / Optimized (Table IX)
-    qiskit/         # four methodologies + CLI (Table X / XI)
-    cost_metric/ post_cmos/ cmos_ptl_tgl/
-Algorithms/         # legacy import shims (renamed from python/)
-benchmarks/         # MCNC / classic / EPFL
-docs/LOCAL_QISKIT.md
-docs/PAGE_MAP.md
-papers/             # Gaur2024.pdf, Zhou2026.pdf
-scripts/
-  setup_local.sh
-  run_qiskit_analysis.py
-  qiskit-transpile-rep20.csv          # Table X reference (20 circuits)
-  all_plas_table9_costs.csv           # library cost export
-  batch_all_plas_costs.py
+benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.esop   # preferred
+benchmarks/mcnc/Combinational/pla/All_PLAs/<name>.pla
 ```
 
-Hub page map: [docs/PAGE_MAP.md](docs/PAGE_MAP.md). Shim notes: [Algorithms/README.md](Algorithms/README.md).
+## System requirements
 
-The FastAPI host remains **mit-panel**; this repo owns the calculation code. mit-panel services are thin wrappers that import `eda_hub` (via `EDA_CALCULATE_RPLA_COST_ROOT` / `_eda_hub_bootstrap`).
+| Item | Need |
+|---|---|
+| OS | Linux or macOS |
+| Python | 3.10+ |
+| Disk | This repo + `benchmarks/` (run `./scripts/download_data.sh` if empty) |
+| For library RPLA costs (Mitra / Tara / Optimized) | Python only |
+| For Qiskit methodologies | Python + Qiskit (`pip install -e '.[qiskit]'`) |
+| For SOP→ESOP / CMOS / PTL / post-CMOS flows | Host EDA tools under `$EDA_ROOT` (see below) |
 
-## Install
+No GPU and no IBM Quantum account are required for the Qiskit cost CLI.
+
+## Install this package
 
 ```bash
 cd /path/to/calculate-rpla-cost
@@ -185,7 +40,7 @@ cd /path/to/calculate-rpla-cost
 source .venv/bin/activate
 ```
 
-Or manually:
+Or:
 
 ```bash
 python3 -m venv .venv
@@ -194,38 +49,169 @@ pip install -U pip setuptools wheel
 pip install -e '.[qiskit]'
 ```
 
-If `benchmarks/` is empty: `./scripts/download_data.sh` (Google Drive via `gdown`).
+Useful env vars:
 
-## Recommended reviewer checklist
-
-1. Read **Paper claims** above; note Tables IX–XI and the misex1 example (G=134 / D=46 / Q=38 vs Prefix Cube G=45 / D∧ ≤ 7 / Q=27).
-2. `./scripts/setup_local.sh` then `source .venv/bin/activate`.
-3. `eda-qiskit-analysis --circuit misex1` — confirm `standard_quantum` gates/depth/qubits 134/46/38 and tally `quantum_cost=90`.
-4. Run the short Python snippet above — confirm NCT 91/66/57/319 and Prefix Cube 45/20/19/113.
-5. Spot-check `rd53` and compare to `scripts/qiskit-transpile-rep20.csv`.
-6. Optional: `eda-qiskit-analysis --all --csv /tmp/out.csv` for the full indexed category.
-7. Optional shim check: `cd Algorithms && python3 -c "import rpla; import qiskit_realization; print('OK')"`.
-
-## Tool resolution
-
-All CLI tools resolve **only** under `$EDA_ROOT` (default: parent of this repo):
-
-- `$EDA_ROOT/bin/{abc,yosys,openroad,ngspice,sta,xschem}`
-- known build trees under `$EDA_ROOT/{abc,yosys,OpenROAD,OpenSTA,ngspice,xschem,…}`
-
-Env overrides (`EDA_ABC`, `EDA_YOSYS`, …) are honored **only** when the path is under `$EDA_ROOT`. Missing tools raise `ToolNotFoundError` (no `/usr/bin` fallback).
-
-**Qiskit cost analysis does not need `EDA_ROOT`.**
-
-## Env vars
-
-| Variable | Purpose |
+| Variable | Meaning |
 |---|---|
-| `EDA_ROOT` | Data/eda tool tree (ABC/Yosys/… only) |
-| `EDA_CALCULATE_RPLA_COST_ROOT` | This repository |
-| `EDA_BENCHMARKS_ROOT` | Benchmark circuits (default: `<repo>/benchmarks`) |
-| `EDA_QISKIT_SITE_PACKAGES` | Optional external Qiskit site-packages |
-| `PYTHON` / `VENV_DIR` | Overrides for `setup_local.sh` |
+| `EDA_ROOT` | Host EDA tree (default: parent of this repo) |
+| `EDA_BENCHMARKS_ROOT` | Override benchmark root |
+| `EDA_CALCULATE_RPLA_COST_ROOT` | This repo, if imported from elsewhere |
+| `EDA_ABC` / `EDA_YOSYS` / `EDA_OPENROAD` / `EDA_NGSPICE` / `EDA_STA` / `EDA_XSCHEM` | Absolute paths; accepted only if under `$EDA_ROOT` |
+
+## External EDA tools (on the host)
+
+Declared in `eda_hub/tools.py`. Lookup is **only** under `$EDA_ROOT` (no `/usr` fallback). On a typical install, `$EDA_ROOT` is the parent of this repo (e.g. `…/Data/eda`) and binaries appear in `$EDA_ROOT/bin/` or the tool build trees.
+
+| Tool | Resolved by | Used for |
+|---|---|---|
+| **ABC** | `resolve_abc_executable()` | SOP/ESOP front end (`&exorcism`), OpenROAD helper flows |
+| **Yosys** | `resolve_yosys_executable()` | Netlist synthesis / map |
+| **OpenROAD** | `resolve_openroad_executable()` | Place / route style metrics |
+| **OpenSTA** (`sta`) | `resolve_sta_executable()` | Timing |
+| **ngspice** | `resolve_ngspice_executable()` | PTL / CNTFET / memristor cell sim |
+| **xschem** | `resolve_xschem_executable()` | Optional schematic capture |
+
+Check that tools resolve from this repo:
+
+```bash
+source .venv/bin/activate
+python - <<'PY'
+from eda_hub.paths import eda_root
+from eda_hub.tools import (
+    resolve_abc_executable, resolve_yosys_executable,
+    resolve_openroad_executable, resolve_ngspice_executable,
+    resolve_sta_executable, resolve_xschem_executable,
+)
+print("EDA_ROOT", eda_root())
+for name, fn in [
+    ("abc", resolve_abc_executable),
+    ("yosys", resolve_yosys_executable),
+    ("openroad", resolve_openroad_executable),
+    ("ngspice", resolve_ngspice_executable),
+    ("sta", resolve_sta_executable),
+    ("xschem", resolve_xschem_executable),
+]:
+    try:
+        print(name, "->", fn())
+    except Exception as e:
+        print(name, "MISSING:", e)
+PY
+```
+
+### Installing the host tools
+
+Build or install each tool into `$EDA_ROOT` (sibling of this repo), then symlink or place executables under `$EDA_ROOT/bin/` if needed. Upstream projects:
+
+| Tool | Upstream |
+|---|---|
+| ABC | https://github.com/berkeley-abc/abc |
+| Yosys | https://github.com/YosysHQ/yosys |
+| OpenROAD | https://github.com/The-OpenROAD-Project/OpenROAD |
+| OpenSTA | https://github.com/The-OpenROAD-Project/OpenSTA |
+| ngspice | https://ngspice.sourceforge.io / https://github.com/imr/ngspice |
+| xschem | https://github.com/StefanSchippers/xschem |
+
+Exact build flags depend on the host OS; follow each project’s install docs and keep the resulting binaries under `$EDA_ROOT`. EXORCISM-4 is used via ABC’s `&exorcism` (see `third_party/exorcism` for reference sources only).
+
+## Algorithms and how to run them
+
+### 1. Library RPLA costs — Mitra2016 / Tara2016 / Optimized (Prefix Cube)
+
+Python-only. Metrics: gates (GA), garbage (GB), ancilla (AI), quantum cost (QC).
+
+**Batch over named covers:**
+
+```bash
+source .venv/bin/activate
+python scripts/batch_all_plas_costs.py
+```
+
+**Single circuit (API):**
+
+```python
+import copy
+from types import SimpleNamespace
+from eda_hub.pages.qiskit.comparison import load_rpla_from_esop_file
+from eda_hub.pages.benchmarks.existing_calculation import ExistingCalculation
+from eda_hub.pages.benchmarks.mitra2016_calculation import Mitra2016Calculation
+from eda_hub.pages.benchmarks.tara2016_calculation import Tara2016Calculation
+from eda_hub.pages.benchmarks.optimized_rpla_calculation import OptimizedRPLACalculation
+from eda_hub.paths import benchmarks_root
+
+path = benchmarks_root() / "mcnc/Combinational/pla/All_PLAs/misex1.esop"
+rpla = load_rpla_from_esop_file(path)
+
+# Existing NCT cascade
+ex = ExistingCalculation(rpla, quiet=True)
+ex.xorPlane(); ex.andPlane()
+print("Existing", ex.gates, ex.garbages, ex.ancilla_input_count, ex.quantumCost)
+
+def snap():
+    return SimpleNamespace(
+        functions=copy.deepcopy(rpla.functions),
+        products=copy.deepcopy(rpla.products),
+    )
+
+m = Mitra2016Calculation(snap(), rpla.totalLiterals, quiet=True)
+m.andPlane(); m.xorPlane()
+print("Mitra2016", m.gates, m.garbages, m.ancilla_input_count, m.quantumCost)
+
+t = Tara2016Calculation(snap(), rpla.totalLiterals, quiet=True)
+t.andPlane(); t.xorPlane()
+print("Tara2016", t.gates, t.garbages, t.ancilla_input_count, t.quantumCost)
+
+o = OptimizedRPLACalculation(snap(), rpla.totalLiterals, quiet=True)
+o.andPlane(); o.xorPlane()
+print("Optimized", o.gates, o.garbages, o.ancilla_input_count, o.quantumCost)
+```
+
+Code: `eda_hub/pages/benchmarks/`.
+
+### 2. Qiskit methodologies — standard / UMG-UNG / Gaur2024 / Zhou2026
+
+Needs Qiskit. Runs on an ESOP/PLA file or an indexed benchmark name.
+
+```bash
+source .venv/bin/activate
+
+# one circuit by name (suite/category defaults: mcnc + Combinational/pla/All_PLAs)
+eda-qiskit-analysis --circuit misex1
+
+# any local file
+eda-qiskit-analysis --file benchmarks/mcnc/Combinational/pla/All_PLAs/rd53.esop
+
+# whole category → CSV (resumable; 600 s timeout per circuit)
+eda-qiskit-analysis --all --csv /tmp/qiskit-all-plas.csv
+```
+
+If the entry point is missing:
+
+```bash
+python scripts/run_qiskit_analysis.py --circuit misex1
+```
+
+| Key | Module | Cost meaning |
+|---|---|---|
+| `standard_quantum` | `eda_hub.pages.qiskit.standard_quantum` | CX + CCX count (weight 1) after transpile |
+| `umg_ung` | `…umg_ung` | CX + 5×(UMG+UNG) |
+| `gaur2024` | `…gaur2024` | FOM = qubit width × Toffoli depth |
+| `zhou2026` | `…zhou2026` | Zhou `C` (µs) / LNN routing model |
+
+Transpile (when circuit ≤ 96 qubits and ≤ 8000 gates): `optimization_level=2`, `seed_transpiler=42`.
+
+### 3. SOP → ESOP (needs ABC / Yosys)
+
+```python
+# used internally by benchmark conversion paths
+from eda_hub.tools import resolve_abc_executable, resolve_yosys_executable
+print(resolve_abc_executable(), resolve_yosys_executable())
+```
+
+Scripts: `scripts/convert_to_esop.py`, `scripts/generate_esop_accurate.py`, `scripts/batch_convert_arithmetic_smart.py`. Code: `eda_hub/pages/benchmarks/sop_esop.py`.
+
+### 4. CMOS / PTL / post-CMOS (need Yosys, OpenROAD, ngspice, …)
+
+Python under `eda_hub/pages/cmos_ptl_tgl/` and `eda_hub/pages/post_cmos/` calls the resolvers above. Typical uses: Yosys synthesis, OpenROAD metrics, ngspice cell simulation. Run from the FastAPI host (mit-panel) or import the modules after tools resolve.
 
 ## License
 
